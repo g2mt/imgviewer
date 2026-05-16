@@ -2,6 +2,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QSettings>
 #include <QSplitter>
 #include <QTabWidget>
 #include <QToolButton>
@@ -10,8 +11,18 @@
 #include <imgviewer/ImageView.h>
 #include <imgviewer/MainWindow.h>
 #include <imgviewer/TagList.h>
+#include <qlogging.h>
 
 MainWindow::MainWindow() {
+  QSettings settings;
+  QString imageDir = settings.value("image_directory", "").toString();
+  if (!imageDir.isEmpty())
+    filter.setCurrentPath(imageDir);
+  QString tagsPath = settings.value("tags_path", "").toString();
+  QString tagsPathReplace = settings.value("tags_path_replace", "").toString();
+  if (!tagsPath.isEmpty())
+    filter.loadTagsFile(tagsPath, tagsPathReplace);
+
   QWidget *centralWidget = new QWidget(this);
   QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
   mainLayout->setContentsMargins(0, 0, 0, 0);
@@ -132,15 +143,9 @@ void MainWindow::setupRightSplitter(QSplitter *horizontalSplitter,
   QTabWidget *tabs = new QTabWidget();
   DirectoryList *dirList = new DirectoryList(&filter);
   tabs->addTab(dirList, "Directory");
-  TagList *tagList = new TagList();
+  TagList *tagList = new TagList(&filter);
   tabs->addTab(tagList, "Tags");
   m_rightSplitter->addWidget(tabs);
-  connect(tagList, &TagList::itemSelectionChanged, [this, tagList]() {
-    QList<QString> list;
-    for (auto item : tagList->selectedItems())
-      list.append(item->text());
-    filter.setTags(list);
-  });
 
   ImageDetailList *imageList = new ImageDetailList(&filter);
   m_rightSplitter->addWidget(imageList);

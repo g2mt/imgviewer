@@ -1,9 +1,17 @@
 #pragma once
-#include <QListWidget>
+#include <QTreeWidget>
 
-class TagList : public QListWidget {
+class Filter;
+
+class TagList : public QTreeWidget {
+  Q_OBJECT
 public:
-  TagList(QWidget *parent = nullptr) : QListWidget(parent) {
-    setSelectionMode(QAbstractItemView::MultiSelection);
-  }
+  TagList(Filter *filter, QWidget *parent = nullptr);
+
+private slots:
+  void populate();
+  void onSelectionChanged();
+
+private:
+  Filter *m_filter;
 };

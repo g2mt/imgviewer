@@ -106,6 +106,16 @@ void ImageDetailModel::reload() {
     entries = std::move(filtered);
   }
 
+  if (!m_filter->tags().isEmpty()) {
+    QFileInfoList filtered;
+    filtered.reserve(entries.size());
+    for (const auto &info : entries) {
+      if (m_filter->fileHasTags(info.absoluteFilePath()))
+        filtered.append(info);
+    }
+    entries = std::move(filtered);
+  }
+
   QCollator collator;
   collator.setCaseSensitivity(Qt::CaseInsensitive);
   collator.setNumericMode(m_filter->naturalSort());
