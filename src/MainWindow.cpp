@@ -81,18 +81,20 @@ void MainWindow::setupMainLayout(QVBoxLayout *mainLayout) {
   QSplitter *horizontalSplitter = new QSplitter(Qt::Horizontal);
   mainLayout->addWidget(horizontalSplitter);
 
-  setupImageView(horizontalSplitter);
-  setupRightSplitter(horizontalSplitter);
+  ImageView *imageView = setupImageView(horizontalSplitter);
+  setupRightSplitter(horizontalSplitter, imageView);
 }
 
-void MainWindow::setupImageView(QSplitter *horizontalSplitter) {
+ImageView *MainWindow::setupImageView(QSplitter *horizontalSplitter) {
   ImageView *imageView = new ImageView();
   horizontalSplitter->addWidget(imageView);
   horizontalSplitter->setStretchFactor(0, 6);
   horizontalSplitter->setCollapsible(0, false);
+  return imageView;
 }
 
-void MainWindow::setupRightSplitter(QSplitter *horizontalSplitter) {
+void MainWindow::setupRightSplitter(QSplitter *horizontalSplitter,
+                                    ImageView *imageView) {
   QSplitter *rightSplitter = new QSplitter(Qt::Vertical);
 
   QTabWidget *tabs = new QTabWidget();
@@ -108,7 +110,10 @@ void MainWindow::setupRightSplitter(QSplitter *horizontalSplitter) {
     filter.setTags(list);
   });
 
-  rightSplitter->addWidget(new ImageDetailList());
+  ImageDetailList *imageList = new ImageDetailList(&filter);
+  rightSplitter->addWidget(imageList);
+  connect(imageList, &ImageDetailList::imageActivated, imageView,
+          &ImageView::setImage);
 
   horizontalSplitter->addWidget(rightSplitter);
   horizontalSplitter->setStretchFactor(1, 1);

@@ -1,13 +1,24 @@
 #pragma once
 #include <QListView>
 
+class Filter;
+class ImageDetailModel;
+
 class ImageDetailList : public QListView {
+  Q_OBJECT
 public:
-  ImageDetailList(QWidget *parent = nullptr) : QListView(parent) {
-    setViewMode(QListView::ListMode);
-    setResizeMode(QListView::Adjust);
-    setLayoutMode(QListView::Batched);
-    setMovement(QListView::Static);
-    setUniformItemSizes(true);
-  }
+  // Takes a non-owning pointer to Filter. The Filter must outlive this
+  // ImageDetailList (both are owned by MainWindow).
+  ImageDetailList(Filter *filter, QWidget *parent = nullptr);
+
+signals:
+  // Emitted when the user activates an item (single click). Carries the
+  // absolute path of the selected image file.
+  void imageActivated(const QString &path);
+
+private slots:
+  void onClicked(const QModelIndex &index);
+
+private:
+  ImageDetailModel *m_model;
 };
