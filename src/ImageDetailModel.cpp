@@ -7,9 +7,39 @@
 #include <QPointer>
 #include <QRunnable>
 #include <QThreadPool>
+#include <QDir>
+#include <QCryptographicHash>
+#include <QUrl>
+
 #include <algorithm>
 
 namespace {
+
+// Returns the path to a cached thumbnail in ~/.cache/thumbnails/
+// ({normal,large,x-large,xx-large}/<md5>.png). Uses XDG_CACHE_HOME or
+// falls back to ~/.cache.
+QString getCachedThumbnailPath(const QString &localFilePath) {
+  QString fileUri = QUrl::fromLocalFile(localFilePath).toString();
+  QByteArray hash =
+      QCryptographicHash::hash(fileUri.toUtf8(), QCryptographicHash::Md5)
+          .toHex();
+
+  const char *dirs[] = {"normal", "large", "x-large", "xx-large"};
+
+  const QByteArray xdgCache = qgetenv("XDG_CACHE_HOME");
+  const QString cacheBase = xdgCache.isEmpty()
+                                ? QDir::homePath() + QLatin1String("/.cache")
+                                : QString::fromUtf8(xdgCache);
+  QDir thumbDir(cacheBase + QLatin1String("/thumbnails"));
+
+  for (const char *dir : dirs) {
+    QDir sizeDir(thumbDir.filePath(QLatin1String(dir)));
+    QString path = sizeDir.filePath(QString::fromLatin1(hash) + QLatin1String(".png"));
+    if (QFile::exists(path))
+      return path;
+  }
+  return {};
+}
 
 // Decodes a single image at reduced size on the global thread pool, then
 // hands the result back to the model on its owning thread via a queued
@@ -23,9 +53,21 @@ public:
   }
 
   void run() override {
-    QImageReader reader(m_path);
-    reader.setAutoTransform(true);
-    QImage img = reader.read();
+    // Try loading a pre-cached thumbnail first.
+    QImage img;
+    QString cachedPath = getCachedThumbnailPath(m_path);
+    if (!cachedPath.isEmpty()) {
+      QImageReader reader(cachedPath);
+      img = reader.read();
+    }
+
+    // Fall back to decoding the original file.
+    if (img.isNull()) {
+      QImageReader reader(m_path);
+      reader.setAutoTransform(true);
+      img = reader.read();
+    }
+
     if (!img.isNull()) {
       img = img.scaled(m_size, m_size, Qt::KeepAspectRatio,
                        Qt::SmoothTransformation);
