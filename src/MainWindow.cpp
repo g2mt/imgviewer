@@ -96,18 +96,11 @@ void MainWindow::setupRightSplitter(QSplitter *horizontalSplitter) {
   QSplitter *rightSplitter = new QSplitter(Qt::Vertical);
 
   QTabWidget *tabs = new QTabWidget();
-  DirectoryList *dirList = new DirectoryList();
+  DirectoryList *dirList = new DirectoryList(&filter);
   tabs->addTab(dirList, "Directory");
   TagList *tagList = new TagList();
   tabs->addTab(tagList, "Tags");
   rightSplitter->addWidget(tabs);
-
-  connect(dirList, &DirectoryList::itemSelectionChanged, [this, dirList]() {
-    QList<QString> list;
-    for (auto item : dirList->selectedItems())
-      list.append(item->text());
-    filter.setDirectories(list);
-  });
   connect(tagList, &TagList::itemSelectionChanged, [this, tagList]() {
     QList<QString> list;
     for (auto item : tagList->selectedItems())

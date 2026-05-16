@@ -1,4 +1,5 @@
 #pragma once
+#include <QDir>
 #include <QList>
 #include <QObject>
 #include <QString>
@@ -11,7 +12,7 @@ class Filter : public QObject {
   SortBy m_sortBy = SortBy::Name;
   bool m_descending = false;
   bool m_naturalSort = false;
-  QList<QString> m_directories;
+  QDir m_currentPath;
   QList<QString> m_tags;
 
 public:
@@ -51,12 +52,14 @@ public:
     }
   }
 
-  const QList<QString> &directories() const { return m_directories; }
-  void setDirectories(const QList<QString> &d) {
-    if (m_directories != d) {
-      m_directories = d;
-      emit changed();
+  const QDir &currentPath() const { return m_currentPath; }
+  void navigateDirectory(const QString &directory) {
+    if (directory == "..") {
+      m_currentPath.cdUp();
+    } else {
+      m_currentPath.cd(directory);
     }
+    emit changed();
   }
 
   const QList<QString> &tags() const { return m_tags; }

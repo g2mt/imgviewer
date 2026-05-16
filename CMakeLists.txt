@@ -20,6 +20,7 @@ add_executable(imgviewer
     src/ImageDetailList.cpp
 
     ### Contains Q_OBJECT macros, needed for automoc
+    src/include/imgviewer/DirectoryList.h
     src/include/imgviewer/Filter.h
     src/include/imgviewer/ImageView.h
 )

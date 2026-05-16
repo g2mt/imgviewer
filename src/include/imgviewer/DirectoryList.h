@@ -1,9 +1,19 @@
 #pragma once
-#include <QListWidget>
+#include <QTreeWidget>
 
-class DirectoryList : public QListWidget {
+class Filter;
+
+class DirectoryList : public QTreeWidget {
+  Q_OBJECT
 public:
-  DirectoryList(QWidget *parent = nullptr) : QListWidget(parent) {
-    setSelectionMode(QAbstractItemView::MultiSelection);
-  }
+  // Takes a non-owning pointer to Filter. The Filter must outlive this
+  // DirectoryList (both are owned by MainWindow).
+  DirectoryList(Filter *filter, QWidget *parent = nullptr);
+
+private slots:
+  void populate();
+  void onItemActivated(QTreeWidgetItem *item, int column);
+
+private:
+  Filter *m_filter;
 };
