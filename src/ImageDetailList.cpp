@@ -66,7 +66,6 @@ ImageDetailList::ImageDetailList(Filter *filter, QWidget *parent)
     : QListView(parent) {
   setViewMode(QListView::ListMode);
   setResizeMode(QListView::Adjust);
-  setLayoutMode(QListView::Batched);
   setMovement(QListView::Static);
   setUniformItemSizes(true);
   setSelectionMode(QAbstractItemView::SingleSelection);
@@ -90,8 +89,7 @@ void ImageDetailList::forward() {
   if (row < m_model->rowCount() - 1) {
     const QModelIndex next = m_model->index(row + 1, 0);
     setCurrentIndex(next);
-    const QString path =
-        next.data(ImageDetailModel::FilePathRole).toString();
+    const QString path = next.data(ImageDetailModel::FilePathRole).toString();
     if (!path.isEmpty())
       emit imageActivated(path);
   }
@@ -103,8 +101,7 @@ void ImageDetailList::backward() {
   if (row > 0) {
     const QModelIndex prev = m_model->index(row - 1, 0);
     setCurrentIndex(prev);
-    const QString path =
-        prev.data(ImageDetailModel::FilePathRole).toString();
+    const QString path = prev.data(ImageDetailModel::FilePathRole).toString();
     if (!path.isEmpty())
       emit imageActivated(path);
   }

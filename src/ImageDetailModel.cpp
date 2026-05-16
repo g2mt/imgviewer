@@ -3,12 +3,12 @@
 #include <imgviewer/utils.h>
 
 #include <QCollator>
+#include <QCryptographicHash>
+#include <QDir>
 #include <QImageReader>
 #include <QPointer>
 #include <QRunnable>
 #include <QThreadPool>
-#include <QDir>
-#include <QCryptographicHash>
 #include <QUrl>
 
 #include <algorithm>
@@ -34,7 +34,8 @@ QString getCachedThumbnailPath(const QString &localFilePath) {
 
   for (const char *dir : dirs) {
     QDir sizeDir(thumbDir.filePath(QLatin1String(dir)));
-    QString path = sizeDir.filePath(QString::fromLatin1(hash) + QLatin1String(".png"));
+    QString path =
+        sizeDir.filePath(QString::fromLatin1(hash) + QLatin1String(".png"));
     if (QFile::exists(path))
       return path;
   }
