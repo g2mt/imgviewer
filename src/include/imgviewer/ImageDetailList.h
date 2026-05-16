@@ -11,6 +11,10 @@ public:
   // ImageDetailList (both are owned by MainWindow).
   ImageDetailList(Filter *filter, QWidget *parent = nullptr);
 
+public slots:
+  void forward();
+  void backward();
+
 signals:
   // Emitted when the user activates an item (single click). Carries the
   // absolute path of the selected image file.

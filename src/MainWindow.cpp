@@ -146,6 +146,10 @@ void MainWindow::setupRightSplitter(QSplitter *horizontalSplitter,
   m_rightSplitter->addWidget(imageList);
   connect(imageList, &ImageDetailList::imageActivated, imageView,
           &ImageView::setImage);
+  connect(imageView, &ImageView::goForward, imageList,
+          &ImageDetailList::forward);
+  connect(imageView, &ImageView::goBackward, imageList,
+          &ImageDetailList::backward);
 
   horizontalSplitter->addWidget(m_rightSplitter);
   horizontalSplitter->setStretchFactor(1, 1);

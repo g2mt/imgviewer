@@ -143,6 +143,16 @@ void ImageView::mouseReleaseEvent(QMouseEvent *event) {
   QFrame::mouseReleaseEvent(event);
 }
 
+void ImageView::mouseDoubleClickEvent(QMouseEvent *event) {
+  if (event->button() == Qt::LeftButton) {
+    if (event->position().x() < width() / 2.0)
+      emit goBackward();
+    else
+      emit goForward();
+  }
+  QFrame::mouseDoubleClickEvent(event);
+}
+
 void ImageView::wheelEvent(QWheelEvent *event) {
   if (!hasImage()) {
     QFrame::wheelEvent(event);

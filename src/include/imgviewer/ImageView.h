@@ -31,6 +31,10 @@ public:
   ImageView(QWidget *parent = nullptr);
   void setImage(const QString &path);
 
+signals:
+  void goForward();
+  void goBackward();
+
 protected:
   void dragEnterEvent(QDragEnterEvent *event) override;
   void dragMoveEvent(QDragMoveEvent *event) override;
@@ -38,6 +42,7 @@ protected:
   void mousePressEvent(QMouseEvent *event) override;
   void mouseMoveEvent(QMouseEvent *event) override;
   void mouseReleaseEvent(QMouseEvent *event) override;
+  void mouseDoubleClickEvent(QMouseEvent *event) override;
   void wheelEvent(QWheelEvent *event) override;
   void resizeEvent(QResizeEvent *event) override;
   void paintEvent(QPaintEvent *event) override;

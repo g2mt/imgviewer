@@ -83,3 +83,29 @@ void ImageDetailList::onClicked(const QModelIndex &index) {
   if (!path.isEmpty())
     emit imageActivated(path);
 }
+
+void ImageDetailList::forward() {
+  const QModelIndex current = currentIndex();
+  const int row = current.row();
+  if (row < m_model->rowCount() - 1) {
+    const QModelIndex next = m_model->index(row + 1, 0);
+    setCurrentIndex(next);
+    const QString path =
+        next.data(ImageDetailModel::FilePathRole).toString();
+    if (!path.isEmpty())
+      emit imageActivated(path);
+  }
+}
+
+void ImageDetailList::backward() {
+  const QModelIndex current = currentIndex();
+  const int row = current.row();
+  if (row > 0) {
+    const QModelIndex prev = m_model->index(row - 1, 0);
+    setCurrentIndex(prev);
+    const QString path =
+        prev.data(ImageDetailModel::FilePathRole).toString();
+    if (!path.isEmpty())
+      emit imageActivated(path);
+  }
+}
