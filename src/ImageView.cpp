@@ -1,7 +1,6 @@
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
-#include <QImageReader>
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
@@ -11,6 +10,7 @@
 #include <QWheelEvent>
 #include <algorithm>
 #include <imgviewer/ImageView.h>
+#include <imgviewer/utils.h>
 
 namespace {
 // Multiplicative zoom factor applied per wheel "notch" (120 eighths of a
@@ -91,7 +91,7 @@ void ImageView::dragEnterEvent(QDragEnterEvent *event) {
     for (const QUrl &url : event->mimeData()->urls()) {
       if (url.isLocalFile()) {
         QString path = url.toLocalFile();
-        if (!QImageReader::imageFormat(path).isEmpty()) {
+        if (isImagePath(path)) {
           event->acceptProposedAction();
           return;
         }

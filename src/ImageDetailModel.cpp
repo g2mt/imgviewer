@@ -1,5 +1,6 @@
 #include <imgviewer/Filter.h>
 #include <imgviewer/ImageDetailModel.h>
+#include <imgviewer/utils.h>
 
 #include <QCollator>
 #include <QImageReader>
@@ -93,7 +94,7 @@ void ImageDetailModel::reload() {
   const QString search = m_filter->search();
   const QStringList tags = m_filter->tags();
   entries.removeIf([&](const QFileInfo &info) {
-    if (QImageReader::imageFormat(info.absoluteFilePath()).isEmpty())
+    if (!isImagePath(info.absoluteFilePath()))
       return true;
     if (!search.isEmpty() &&
         !info.fileName().contains(search, Qt::CaseInsensitive))
