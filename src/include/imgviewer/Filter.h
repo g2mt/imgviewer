@@ -14,7 +14,7 @@ class Filter : public QObject {
   QString m_search;
   SortBy m_sortBy = SortBy::Name;
   bool m_descending = false;
-  bool m_naturalSort = false;
+  bool m_naturalSort = true;
   QDir m_currentPath;
   QList<QString> m_tags;
   QMap<QString, QStringList> m_tagMap;
