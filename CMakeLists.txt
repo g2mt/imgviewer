@@ -18,6 +18,9 @@ add_executable(imgviewer
     src/DirectoryList.cpp 
     src/TagList.cpp 
     src/ImageDetailList.cpp
+
+    ### Contains Q_OBJECT macros, needed for automoc
+    src/include/imgviewer/Filter.h
 )
 target_compile_definitions(imgviewer PRIVATE -DQT_DEPRECATED_WARNINGS)
 target_include_directories(imgviewer PRIVATE src/include)
