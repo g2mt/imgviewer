@@ -2,6 +2,7 @@
 #include <imgviewer/TagList.h>
 
 #include <QHeaderView>
+#include <qnamespace.h>
 
 TagList::TagList(Filter *filter, QWidget *parent)
     : QTreeWidget(parent), m_filter(filter) {
@@ -22,12 +23,12 @@ void TagList::populate() {
   const auto &tagMap = m_filter->tagMap();
   for (auto it = tagMap.constBegin(); it != tagMap.constEnd(); ++it) {
     QTreeWidgetItem *item = new QTreeWidgetItem(this);
-    item->setText(0, QString::number(it.value().size()));
+    item->setData(0, Qt::DisplayRole, it.value().size());
     item->setText(1, it.key());
     item->setData(1, Qt::UserRole, it.key());
   }
 
-  sortByColumn(1, Qt::AscendingOrder);
+  sortByColumn(0, Qt::DescendingOrder);
 }
 
 void TagList::onSelectionChanged() {

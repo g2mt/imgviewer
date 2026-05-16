@@ -5,23 +5,19 @@
 #include <QSettings>
 #include <QSplitter>
 #include <QTabWidget>
+#include <QTimer>
 #include <QToolButton>
 #include <imgviewer/DirectoryList.h>
 #include <imgviewer/ImageDetailList.h>
 #include <imgviewer/ImageView.h>
 #include <imgviewer/MainWindow.h>
 #include <imgviewer/TagList.h>
-#include <qlogging.h>
 
 MainWindow::MainWindow() {
   QSettings settings;
   QString imageDir = settings.value("image_directory", "").toString();
   if (!imageDir.isEmpty())
     filter.setCurrentPath(imageDir);
-  QString tagsPath = settings.value("tags_path", "").toString();
-  QString tagsPathReplace = settings.value("tags_path_replace", "").toString();
-  if (!tagsPath.isEmpty())
-    filter.loadTagsFile(tagsPath, tagsPathReplace);
 
   QWidget *centralWidget = new QWidget(this);
   QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
@@ -38,6 +34,15 @@ MainWindow::MainWindow() {
 
   installEventFilter(this);
   setupEventFilters(this);
+
+  QTimer::singleShot(0, [this]() {
+    QSettings settings;
+    QString tagsPath = settings.value("tags_path", "").toString();
+    QString tagsPathReplace =
+        settings.value("tags_path_replace", "").toString();
+    if (!tagsPath.isEmpty())
+      filter.loadTagsFile(tagsPath, tagsPathReplace);
+  });
 }
 
 void MainWindow::setupFilterMenu(QMenu *filterMenu) {
