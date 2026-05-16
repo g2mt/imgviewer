@@ -87,13 +87,8 @@ void MainWindow::setupMainLayout(QVBoxLayout *mainLayout) {
 
 void MainWindow::setupImageView(QSplitter *horizontalSplitter) {
   ImageView *imageView = new ImageView();
-  QLayout *ivLayout = new QVBoxLayout(imageView);
-  QLabel *placeholder = new QLabel("Select an image...");
-  placeholder->setAlignment(Qt::AlignCenter);
-  placeholder->setStyleSheet("color: lightgray;");
-  ivLayout->addWidget(placeholder);
   horizontalSplitter->addWidget(imageView);
-  horizontalSplitter->setStretchFactor(0, 7);
+  horizontalSplitter->setStretchFactor(0, 6);
   horizontalSplitter->setCollapsible(0, false);
 }
 
