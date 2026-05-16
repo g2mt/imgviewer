@@ -108,6 +108,15 @@ void MainWindow::setupMenuBar() {
   connect(quitAction, &QAction::triggered, this, &QMainWindow::close);
 
   QMenu *viewMenu = m_menuBar->addMenu("&View");
+  QAction *fullScreenAction = viewMenu->addAction("&Full Screen");
+  fullScreenAction->setShortcut(QKeySequence("F11"));
+  connect(fullScreenAction, &QAction::triggered, this, [this]() {
+    if (isFullScreen())
+      showNormal();
+    else
+      showFullScreen();
+  });
+
   m_collapseViewAction = viewMenu->addAction("&Collapse View");
   m_collapseViewAction->setShortcut(QKeySequence("Tab"));
   m_collapseViewAction->setCheckable(true);
