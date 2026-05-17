@@ -1,11 +1,11 @@
-#include <imgviewer/utils.h>
 #include <QFileInfo>
+#include <imgviewer/utils.h>
 
 #ifdef IMGVIEWER_FEAT_ARCHIVE
-#include <archive.h>
-#include <archive_entry.h>
 #include <QDir>
 #include <QFile>
+#include <archive.h>
+#include <archive_entry.h>
 #endif
 
 bool isImagePath(const QString &path) {
@@ -18,10 +18,9 @@ bool isImagePath(const QString &path) {
 
 bool isArchivePath(const QString &path) {
   const QString ext = QFileInfo(path).suffix().toLower();
-  return ext == "zip" || ext == "tar" || ext == "tgz" ||
-         ext == "tbz2" || ext == "txz" || ext == "7z" ||
-         ext == "rar" || ext == "gz" || ext == "bz2" ||
-         ext == "xz" || ext == "lz" || ext == "lzma" ||
+  return ext == "zip" || ext == "tar" || ext == "tgz" || ext == "tbz2" ||
+         ext == "txz" || ext == "7z" || ext == "rar" || ext == "gz" ||
+         ext == "bz2" || ext == "xz" || ext == "lz" || ext == "lzma" ||
          ext == "zst" || ext == "iso" || ext == "cpio" || ext == "ar";
 }
 

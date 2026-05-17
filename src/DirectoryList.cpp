@@ -38,13 +38,12 @@ void DirectoryList::populate() {
     item->setData(1, Qt::UserRole, info.fileName());
   }
 
-  const auto files =
-      current.entryInfoList(QDir::Files, QDir::Name);
+  const auto files = current.entryInfoList(QDir::Files, QDir::Name);
   for (const auto &info : files) {
     if (isArchivePath(info.absoluteFilePath())) {
       QTreeWidgetItem *item = new QTreeWidgetItem(this);
       item->setIcon(0, QIcon::fromTheme("application-x-archive",
-                                         QIcon::fromTheme("package-x-generic")));
+                                        QIcon::fromTheme("package-x-generic")));
       item->setText(1, info.fileName());
       item->setData(1, Qt::UserRole, info.fileName());
     }

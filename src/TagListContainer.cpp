@@ -26,8 +26,8 @@ TagListContainer::TagListContainer(Filter *filter, QWidget *parent)
 void TagListContainer::filterTags(const QString &text) {
   for (int i = 0; i < m_tagList->topLevelItemCount(); ++i) {
     QTreeWidgetItem *item = m_tagList->topLevelItem(i);
-    bool visible = text.isEmpty() ||
-                   item->text(1).contains(text, Qt::CaseInsensitive);
+    bool visible =
+        text.isEmpty() || item->text(1).contains(text, Qt::CaseInsensitive);
     item->setHidden(!visible);
   }
 }
