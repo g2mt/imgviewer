@@ -1,4 +1,5 @@
 #include <imgviewer/Filter.h>
+#include <imgviewer/utils.h>
 
 #include <QFile>
 #include <QRegularExpression>
@@ -78,4 +79,47 @@ bool Filter::fileHasTags(const QString &filePath) const {
       return false;
   }
   return true;
+}
+
+void Filter::setCurrentPath(const QString &path) {
+  m_archive.tempDir.reset();
+  m_archive.sourceDir.clear();
+  m_currentPath.setPath(path);
+  emit changed();
+}
+
+void Filter::navigateDirectory(const QString &directory) {
+  if (directory == "..") {
+    if (m_archive.tempDir &&
+        m_currentPath.absolutePath() == m_archive.tempDir->path()) {
+      // At the root of an archive temp dir - go back to the archive source.
+      m_archive.tempDir.reset();
+      m_currentPath.setPath(m_archive.sourceDir);
+      m_archive.sourceDir.clear();
+      emit changed();
+      return;
+    }
+    m_currentPath.cdUp();
+    emit changed();
+    return;
+  }
+
+  // When not already inside an archive, try to extract archive files.
+  if (!m_archive.tempDir) {
+    const QString fullPath = m_currentPath.absoluteFilePath(directory);
+    const QFileInfo info(fullPath);
+    if (info.isFile() && isArchivePath(fullPath)) {
+      auto tempDir = std::make_unique<QTemporaryDir>();
+      if (tempDir->isValid() && extractArchiveTo(fullPath, tempDir->path())) {
+        m_archive.sourceDir = m_currentPath.absolutePath();
+        m_archive.tempDir = std::move(tempDir);
+        m_currentPath.setPath(m_archive.tempDir->path());
+        emit changed();
+        return;
+      }
+    }
+  }
+
+  m_currentPath.cd(directory);
+  emit changed();
 }

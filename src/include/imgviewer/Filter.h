@@ -6,6 +6,8 @@
 #include <QSet>
 #include <QString>
 #include <QStringList>
+#include <QTemporaryDir>
+#include <memory>
 
 enum class SortBy { Name, DateCreated, DateModified };
 
@@ -18,6 +20,10 @@ class Filter : public QObject {
   QDir m_currentPath;
   QList<QString> m_tags;
   QMap<QString, QStringList> m_tagMap;
+  struct {
+    std::unique_ptr<QTemporaryDir> tempDir; // null when not viewing an archive
+    QString sourceDir;
+  } m_archive;
 
 public:
 signals:
@@ -58,18 +64,8 @@ public:
   }
 
   const QDir &currentPath() const { return m_currentPath; }
-  void setCurrentPath(const QString &path) {
-    m_currentPath.setPath(path);
-    emit changed();
-  }
-  void navigateDirectory(const QString &directory) {
-    if (directory == "..") {
-      m_currentPath.cdUp();
-    } else {
-      m_currentPath.cd(directory);
-    }
-    emit changed();
-  }
+  void setCurrentPath(const QString &path);
+  void navigateDirectory(const QString &directory);
 
   const QList<QString> &tags() const { return m_tags; }
   void setTags(const QList<QString> &t) {
