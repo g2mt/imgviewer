@@ -10,10 +10,9 @@
 #include <imgviewer/DirectoryList.h>
 #include <imgviewer/ImageDetailList.h>
 #include <imgviewer/ImageView.h>
-#include <imgviewer/TagListContainer.h>
 #include <imgviewer/MainWindow.h>
 #include <imgviewer/TagList.h>
-#include <imgviewer/ImageDetailList.h>
+#include <imgviewer/TagListContainer.h>
 
 MainWindow::MainWindow() {
   QSettings settings;
@@ -27,12 +26,11 @@ MainWindow::MainWindow() {
   mainLayout->setSpacing(0);
   setCentralWidget(centralWidget);
 
-  setupMenuBar();
-
   m_toolbar = new QToolBar(this);
   addToolBar(m_toolbar);
   setupToolbar(m_toolbar);
   setupMainLayout(mainLayout);
+  setupMenuBar();
 
   installEventFilter(this);
   setupEventFilters(this);
@@ -127,6 +125,18 @@ void MainWindow::setupMenuBar() {
   connect(m_collapseViewAction, &QAction::triggered, this,
           &MainWindow::toggleCollapseView);
 
+  viewMenu->addSeparator();
+  QAction *flipHAction = viewMenu->addAction("Flip &Horizontal");
+  flipHAction->setShortcut(QKeySequence("m"));
+  flipHAction->setCheckable(true);
+  connect(flipHAction, &QAction::triggered, m_imageView,
+          &ImageView::setFlipHorizontal);
+  QAction *flipVAction = viewMenu->addAction("Flip &Vertical");
+  flipVAction->setShortcut(QKeySequence("v"));
+  flipVAction->setCheckable(true);
+  connect(flipVAction, &QAction::triggered, m_imageView,
+          &ImageView::setFlipVertical);
+
   QMenu *filterMenu = m_menuBar->addMenu("Fil&ter");
   setupFilterMenu(filterMenu);
 }
@@ -195,7 +205,8 @@ void MainWindow::updateNavButtons() {
     return;
   }
   m_backAction->setEnabled(current.row() > 0);
-  m_forwardAction->setEnabled(current.row() < m_imageList->model()->rowCount() - 1);
+  m_forwardAction->setEnabled(current.row() <
+                              m_imageList->model()->rowCount() - 1);
 }
 
 void MainWindow::setupEventFilters(QObject *obj) {

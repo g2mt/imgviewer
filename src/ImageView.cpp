@@ -5,6 +5,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QResizeEvent>
+#include <QTransform>
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QWheelEvent>
@@ -33,9 +34,20 @@ ImageView::ImageView(QWidget *parent) : QFrame(parent) {
 }
 
 void ImageView::setImage(const QString &path) {
-  m_pixmap = QPixmap(path);
+  m_originalPixmap = QPixmap(path);
+  applyFlip();
   resetCamera();
   updateImageDisplay();
+}
+
+void ImageView::applyFlip() {
+  QTransform t;
+  if (m_flipH)
+    t.scale(-1, 1);
+  if (m_flipV)
+    t.scale(1, -1);
+  m_pixmap =
+      t.isIdentity() ? m_originalPixmap : m_originalPixmap.transformed(t);
 }
 
 bool ImageView::hasImage() const { return !m_pixmap.isNull(); }
@@ -61,6 +73,22 @@ void ImageView::updateImageDisplay() {
   if (hasImage()) {
     m_placeholder->hide();
   }
+  update();
+}
+
+void ImageView::setFlipHorizontal(bool flip) {
+  if (m_flipH == flip)
+    return;
+  m_flipH = flip;
+  applyFlip();
+  update();
+}
+
+void ImageView::setFlipVertical(bool flip) {
+  if (m_flipV == flip)
+    return;
+  m_flipV = flip;
+  applyFlip();
   update();
 }
 

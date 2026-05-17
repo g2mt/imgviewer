@@ -30,6 +30,8 @@ class ImageView : public QFrame {
 public:
   ImageView(QWidget *parent = nullptr);
   void setImage(const QString &path);
+  void setFlipHorizontal(bool flip);
+  void setFlipVertical(bool flip);
 
 signals:
   void goForward();
@@ -52,10 +54,15 @@ private:
   bool hasImage() const;
   // Reset the camera so the image is fit to the widget width and centered.
   void resetCamera();
+  // Rebuild m_pixmap from m_originalPixmap with current flip flags.
+  void applyFlip();
 
   QLabel *m_placeholder;
+  QPixmap m_originalPixmap;
   QPixmap m_pixmap;
   Camera m_camera;
   QPointF m_lastMousePos;
   bool m_panning = false;
+  bool m_flipH = false;
+  bool m_flipV = false;
 };
