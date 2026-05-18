@@ -1,9 +1,11 @@
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
+#include <QGestureEvent>
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPinchGesture>
 #include <QResizeEvent>
 #include <QTransform>
 #include <QUrl>
@@ -12,6 +14,7 @@
 #include <algorithm>
 #include <imgviewer/ImageView.h>
 #include <imgviewer/utils.h>
+#include <qevent.h>
 
 namespace {
 // Multiplicative zoom factor applied per wheel "notch" (120 eighths of a
@@ -31,6 +34,7 @@ ImageView::ImageView(QWidget *parent) : QFrame(parent) {
 
   setStyleSheet("background-color: #333; color: #eee;");
   setAcceptDrops(true);
+  grabGesture(Qt::PinchGesture);
 }
 
 void ImageView::setImage(const QString &path) {
@@ -114,6 +118,23 @@ void ImageView::resizeEvent(QResizeEvent *event) {
     update();
 }
 
+bool ImageView::event(QEvent *event) {
+  if (event->type() == QEvent::NativeGesture) {
+    auto *gestureEvent = static_cast<QNativeGestureEvent *>(event);
+    if (gestureEvent->gestureType() == Qt::ZoomNativeGesture) {
+      const QPointF cursor = gestureEvent->position();
+      const QPointF imagePointUnderCursor = m_camera.screenToImage(cursor);
+      m_camera.zoom = std::clamp(m_camera.zoom + (float)(gestureEvent->value()),
+                                 kMinZoom, kMaxZoom);
+      m_camera.imageTarget = imagePointUnderCursor;
+      m_camera.offset = cursor;
+      update();
+      return true;
+    }
+  }
+  return QFrame::event(event);
+}
+
 void ImageView::dragEnterEvent(QDragEnterEvent *event) {
   if (event->mimeData()->hasUrls()) {
     for (const QUrl &url : event->mimeData()->urls()) {
@@ -186,18 +207,20 @@ void ImageView::wheelEvent(QWheelEvent *event) {
     return;
   }
 
-  // Zoom around the cursor by re-anchoring the camera: the image point
-  // currently under the cursor is recorded, the zoom is updated, and the
-  // camera is configured so that same image point still lands at the cursor.
-  const QPointF cursor = event->position();
-  const QPointF imagePointUnderCursor = m_camera.screenToImage(cursor);
+  if (event->modifiers() & Qt::ControlModifier) {
+    const QPointF cursor = event->position();
+    const QPointF imagePointUnderCursor = m_camera.screenToImage(cursor);
 
-  const float notches = event->angleDelta().y() / 120.0f;
-  const float factor = std::pow(kZoomStepPerNotch, notches);
-  m_camera.zoom = std::clamp(m_camera.zoom * factor, kMinZoom, kMaxZoom);
+    const float notches = event->angleDelta().y() / 120.0f;
+    const float factor = std::pow(kZoomStepPerNotch, notches);
+    m_camera.zoom = std::clamp(m_camera.zoom * factor, kMinZoom, kMaxZoom);
 
-  m_camera.imageTarget = imagePointUnderCursor;
-  m_camera.offset = cursor;
+    m_camera.imageTarget = imagePointUnderCursor;
+    m_camera.offset = cursor;
+  } else {
+    const QPointF delta = event->angleDelta() / 8.0;
+    m_camera.offset += delta;
+  }
 
   update();
   event->accept();
