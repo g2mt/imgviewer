@@ -1,7 +1,9 @@
 #include <imgviewer/Filter.h>
 #include <imgviewer/ImageDetailModel.h>
 
+#ifdef USE_KIO
 #include <KIO/StoredTransferJob>
+#endif
 #include <QBuffer>
 #include <QCollator>
 #include <QImageReader>
@@ -100,6 +102,20 @@ void ImageDetailModel::requestThumbnail(const DirectoryEntry &entry) const {
   m_pending.insert(path);
 
   auto *self = const_cast<ImageDetailModel *>(this);
+
+#ifdef USE_LIBARCHIVE
+  QImage image;
+  if (entry.path.isLocalFile()) {
+    QImageReader reader(entry.path.toLocalFile());
+    reader.setAutoTransform(true);
+    image = reader.read();
+  }
+  if (!image.isNull()) {
+    image = image.scaled(kThumbnailSize, kThumbnailSize, Qt::KeepAspectRatio,
+                         Qt::SmoothTransformation);
+  }
+  self->onThumbnailReady(path, image);
+#elif defined(USE_KIO)
   KIO::StoredTransferJob *job = KIO::storedGet(entry.path, KIO::NoReload);
   connect(job, &KIO::StoredTransferJob::result, self, [self, job, path]() {
     if (!self->m_pending.contains(path))
@@ -122,6 +138,7 @@ void ImageDetailModel::requestThumbnail(const DirectoryEntry &entry) const {
     }
     self->onThumbnailReady(path, image);
   });
+#endif
 }
 
 void ImageDetailModel::onThumbnailReady(const QString &path,

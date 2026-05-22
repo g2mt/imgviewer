@@ -1,5 +1,7 @@
+#ifdef USE_KIO
 #include <KIO/StoredTransferJob>
 #include <KJob>
+#endif
 #include <QBuffer>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
@@ -46,6 +48,16 @@ void ImageView::setImage(const QUrl &url) {
   m_originalPixmap = {};
   m_pixmap = {};
 
+#ifdef USE_LIBARCHIVE
+  if (!url.isLocalFile())
+    return;
+  QImageReader reader(url.toLocalFile());
+  reader.setAutoTransform(true);
+  m_originalPixmap = QPixmap::fromImage(reader.read());
+  applyFlip();
+  resetCamera();
+  updateImageDisplay();
+#elif defined(USE_KIO)
   // Cancel any in-flight KIO request
   if (m_currentJob) {
     KIO::StoredTransferJob *oldJob = m_currentJob;
@@ -74,6 +86,7 @@ void ImageView::setImage(const QUrl &url) {
     updateImageDisplay();
   });
   m_currentJob = job;
+#endif
 }
 
 void ImageView::applyFlip() {

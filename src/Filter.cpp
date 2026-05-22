@@ -1,7 +1,5 @@
 #include <imgviewer/Filter.h>
 
-#include <KIO/ListJob>
-#include <KIO/StoredTransferJob>
 #include <QBuffer>
 #include <QDir>
 #include <QEventLoop>
@@ -10,6 +8,14 @@
 #include <QTextStream>
 #include <QUrl>
 #include <sys/stat.h>
+
+#ifdef USE_LIBARCHIVE
+#include <archive.h>
+#include <archive_entry.h>
+#elif defined(USE_KIO)
+#include <KIO/ListJob>
+#include <KIO/StoredTransferJob>
+#endif
 
 namespace {
 
@@ -92,6 +98,56 @@ bool Filter::fileHasTags(const QString &filePath) const {
   return true;
 }
 
+#ifdef USE_LIBARCHIVE
+bool Filter::extractArchive(const QString &archivePath) {
+  struct archive *a = archive_read_new();
+  archive_read_support_filter_all(a);
+  archive_read_support_format_all(a);
+
+  if (archive_read_open_filename(a, QFile::encodeName(archivePath).constData(),
+                                 10240) != ARCHIVE_OK) {
+    archive_read_free(a);
+    return false;
+  }
+
+  QString destDir = m_archiveTemp->dir.path();
+  struct archive_entry *entry;
+  while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
+    const QString name = QString::fromUtf8(archive_entry_pathname(entry));
+    if (name.isEmpty())
+      continue;
+
+    const QString fullPath = destDir + QLatin1Char('/') + name;
+
+    if (archive_entry_filetype(entry) == AE_IFREG) {
+      QFileInfo fi(fullPath);
+      QDir().mkpath(fi.absolutePath());
+
+      FILE *f = fopen(QFile::encodeName(fullPath).constData(), "wb");
+      if (!f) {
+        archive_read_free(a);
+        return false;
+      }
+      char buf[8192];
+      la_ssize_t len;
+      while ((len = archive_read_data(a, buf, sizeof(buf))) > 0) {
+        if (fwrite(buf, 1, len, f) != (size_t)len) {
+          fclose(f);
+          archive_read_free(a);
+          return false;
+        }
+      }
+      fclose(f);
+    } else if (archive_entry_filetype(entry) == AE_IFDIR) {
+      QDir().mkpath(fullPath);
+    }
+  }
+
+  archive_read_free(a);
+  return true;
+}
+#endif
+
 /** Directory **/
 
 QList<DirectoryEntry> Filter::listDirectoryEntries() const {
@@ -121,6 +177,7 @@ QList<DirectoryEntry> Filter::listDirectoryEntries() const {
     return entries;
   }
 
+#ifdef USE_KIO
   QUrl url = m_currentUrl;
   if (url.scheme().isEmpty())
     url = QUrl::fromLocalFile(url.path());
@@ -148,6 +205,7 @@ QList<DirectoryEntry> Filter::listDirectoryEntries() const {
   QObject::connect(job, &KIO::ListJob::result, &loop,
                    [&loop](auto...) { loop.quit(); });
   loop.exec();
+#endif
   return entries;
 }
 
@@ -159,17 +217,38 @@ void Filter::setCurrentPath(const QString &path) {
 void Filter::navigateDirectory(const DirectoryEntry &entry) {
   // Handle ".." — navigate to parent directory
   if (entry.path.toString() == QLatin1String("..")) {
+#ifdef USE_LIBARCHIVE
+    if (m_archiveTemp) {
+      QDir dir(m_currentUrl.toLocalFile());
+      if (dir.cdUp()) {
+        const QString parent = dir.absolutePath();
+        const QString tempRoot = m_archiveTemp->dir.path();
+        if (parent.startsWith(tempRoot) &&
+            parent.length() > tempRoot.length()) {
+          // Still inside the archive
+          m_currentUrl = QUrl::fromLocalFile(parent);
+          emit changed();
+          return;
+        }
+      }
+      // Leaving the archive entirely
+      m_currentUrl = m_archiveTemp->parentUrl;
+      m_archiveTemp.reset();
+      emit changed();
+      return;
+    }
+#else
     // Inside a zip archive: walk up the virtual path, fall back to local file
     // system
     if (m_currentUrl.scheme() == QLatin1String("zip")) {
       QUrl url = m_currentUrl.adjusted(QUrl::RemoveFilename);
       m_currentUrl = url;
-      if (QFile::exists(url.path())) {
+      if (QFile::exists(url.path()))
         m_currentUrl.setScheme("file");
-      }
       emit changed();
       return;
     }
+#endif
 
     // Local file: use QDir::cdUp
     if (m_currentUrl.isLocalFile()) {
@@ -192,6 +271,23 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
     return;
   }
 
+#ifdef USE_LIBARCHIVE
+  // Local entry that looks like an archive — extract it to a temp directory
+  if (entry.isArchivePath()) {
+    auto temp = std::make_unique<ArchiveTemp>();
+    if (temp->dir.isValid()) {
+      temp->parentUrl = m_currentUrl;
+      m_archiveTemp = std::move(temp);
+      if (extractArchive(entry.path.toLocalFile())) {
+        m_currentUrl = QUrl::fromLocalFile(m_archiveTemp->dir.path());
+        emit changed();
+        return;
+      }
+      // Extraction failed, clean up
+      m_archiveTemp.reset();
+    }
+  }
+#else
   // Local entry that looks like an archive — navigate into it via zip:// scheme
   if (entry.isArchivePath()) {
     QUrl archiveUrl;
@@ -201,6 +297,7 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
     emit changed();
     return;
   }
+#endif
 
   // Normal directory navigation: switch to the entry's path
   m_currentUrl = entry.path;

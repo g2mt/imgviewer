@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QTemporaryDir>
+#include <memory>
 
 #include <imgviewer/DirectoryEntry.h>
 
@@ -68,6 +70,15 @@ public:
   QList<DirectoryEntry> listDirectoryEntries() const;
 
 private:
+#ifdef USE_LIBARCHIVE
+  bool extractArchive(const QString &archivePath);
+
+  struct ArchiveTemp {
+    QTemporaryDir dir;
+    QUrl parentUrl;
+  };
+#endif
+
   QString m_search;
   SortBy m_sortBy = SortBy::Name;
   bool m_descending = false;
@@ -75,4 +86,7 @@ private:
   QUrl m_currentUrl;
   QList<QString> m_tags;
   QMap<QString, QStringList> m_tagMap;
+#ifdef USE_LIBARCHIVE
+  std::unique_ptr<ArchiveTemp> m_archiveTemp;
+#endif
 };

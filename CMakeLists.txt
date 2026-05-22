@@ -8,18 +8,19 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
-find_package(KF6KIO REQUIRED CONFIG)
+option(USE_LIBARCHIVE "Use libarchive for archive support (fallback to KIO zip://)" OFF)
 
-add_executable(imgviewer 
-    src/main.cpp 
-    src/MainWindow.cpp 
-    src/Filter.cpp 
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
+
+add_executable(imgviewer
+    src/main.cpp
+    src/MainWindow.cpp
+    src/Filter.cpp
     src/DirectoryEntry.cpp
-    src/ImageView.cpp 
-    src/DirectoryList.cpp 
-    src/TagList.cpp 
-    src/TagListContainer.cpp 
+    src/ImageView.cpp
+    src/DirectoryList.cpp
+    src/TagList.cpp
+    src/TagListContainer.cpp
     src/ImageDetailList.cpp
     src/ImageDetailModel.cpp
 
@@ -35,7 +36,16 @@ add_executable(imgviewer
 )
 target_compile_definitions(imgviewer PRIVATE -DQT_DEPRECATED_WARNINGS)
 target_include_directories(imgviewer PRIVATE src/include)
-target_link_libraries(imgviewer PRIVATE Qt6::Widgets KF6::KIOCore)
+
+if(USE_LIBARCHIVE)
+  find_package(LibArchive REQUIRED)
+  target_compile_definitions(imgviewer PRIVATE USE_LIBARCHIVE)
+  target_link_libraries(imgviewer PRIVATE Qt6::Widgets LibArchive::LibArchive)
+else()
+  find_package(KF6KIO REQUIRED CONFIG)
+  target_compile_definitions(imgviewer PRIVATE USE_KIO)
+  target_link_libraries(imgviewer PRIVATE Qt6::Widgets KF6::KIOCore)
+endif()
 
 include(GNUInstallDirs)
 

@@ -7,9 +7,11 @@
 #include <QString>
 
 class Filter;
+#ifdef USE_KIO
 namespace KIO {
 class StoredTransferJob;
 }
+#endif
 
 // Camera describes the affine mapping between image-space pixels and the
 // widget's screen-space pixels. The point `imageTarget` (in image
@@ -73,5 +75,7 @@ private:
   bool m_panning = false;
   bool m_flipH = false;
   bool m_flipV = false;
+#ifdef USE_KIO
   KIO::StoredTransferJob *m_currentJob = nullptr;
+#endif
 };
