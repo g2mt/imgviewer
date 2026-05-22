@@ -50,7 +50,7 @@ public:
     }
   }
 
-  const QUrl &currentPath() const { return m_currentPath; }
+  const QUrl &currentPath() const { return m_currentUrl; }
   void setCurrentPath(const QString &path);
   void navigateDirectory(const DirectoryEntry &directory);
 
@@ -72,7 +72,7 @@ private:
   SortBy m_sortBy = SortBy::Name;
   bool m_descending = false;
   bool m_naturalSort = true;
-  QUrl m_currentPath;
+  QUrl m_currentUrl;
   QList<QString> m_tags;
   QMap<QString, QStringList> m_tagMap;
 };
