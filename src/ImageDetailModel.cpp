@@ -7,12 +7,6 @@
 #include <QImageReader>
 #include <algorithm>
 
-namespace {
-
-constexpr int kRemoteThumbnailSize = ImageDetailModel::kThumbnailSize;
-
-} // namespace
-
 ImageDetailModel::ImageDetailModel(Filter *filter, QObject *parent)
     : QAbstractListModel(parent), m_filter(filter) {
   reload();
@@ -123,8 +117,8 @@ void ImageDetailModel::requestThumbnail(const DirectoryEntry &entry) const {
     }
 
     if (!image.isNull()) {
-      image = image.scaled(kRemoteThumbnailSize, kRemoteThumbnailSize,
-                           Qt::KeepAspectRatio, Qt::SmoothTransformation);
+      image = image.scaled(kThumbnailSize, kThumbnailSize, Qt::KeepAspectRatio,
+                           Qt::SmoothTransformation);
     }
     self->onThumbnailReady(path, image);
   });
