@@ -1,5 +1,6 @@
 #pragma once
 #include <QListView>
+#include <QString>
 
 class Filter;
 class ImageDetailModel;

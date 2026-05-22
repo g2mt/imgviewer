@@ -23,35 +23,27 @@ DirectoryList::DirectoryList(Filter *filter, QWidget *parent)
 void DirectoryList::populate() {
   clear();
 
-  const QDir &current = m_filter->currentPath();
   QTreeWidgetItem *upItem = new QTreeWidgetItem(this);
   upItem->setIcon(0, QIcon::fromTheme("go-up"));
   upItem->setText(1, "..");
   upItem->setData(1, Qt::UserRole, "..");
 
-  const auto entries =
-      current.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
-  for (const auto &info : entries) {
-    QTreeWidgetItem *item = new QTreeWidgetItem(this);
-    item->setIcon(0, QIcon::fromTheme("folder"));
-    item->setText(1, info.fileName());
-    item->setData(1, Qt::UserRole, info.fileName());
-  }
-
-  const auto files = current.entryInfoList(QDir::Files, QDir::Name);
-  for (const auto &info : files) {
-    if (isArchivePath(info.absoluteFilePath())) {
+  const auto entries = listDirectoryEntries(m_filter->currentPath());
+  for (const auto &entry : entries) {
+    if (entry.isDir || isArchivePath(entry.path)) {
       QTreeWidgetItem *item = new QTreeWidgetItem(this);
-      item->setIcon(0, QIcon::fromTheme("application-x-archive",
-                                        QIcon::fromTheme("package-x-generic")));
-      item->setText(1, info.fileName());
-      item->setData(1, Qt::UserRole, info.fileName());
+      item->setIcon(0, entry.isDir ? QIcon::fromTheme("folder")
+                                   : QIcon::fromTheme(
+                                         "application-x-archive",
+                                         QIcon::fromTheme("package-x-generic")));
+      item->setText(1, entry.name);
+      item->setData(1, Qt::UserRole, entry.path);
     }
   }
 }
 
 void DirectoryList::onItemActivated(QTreeWidgetItem *item, int column) {
   Q_UNUSED(column);
-  QString dirName = item->data(1, Qt::UserRole).toString();
-  m_filter->navigateDirectory(dirName);
+  QString path = item->data(1, Qt::UserRole).toString();
+  m_filter->navigateDirectory(path);
 }

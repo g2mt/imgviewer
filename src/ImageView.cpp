@@ -1,3 +1,4 @@
+#include <QBuffer>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
@@ -5,6 +6,7 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QImageReader>
 #include <QPinchGesture>
 #include <QResizeEvent>
 #include <QTransform>
@@ -38,7 +40,18 @@ ImageView::ImageView(QWidget *parent) : QFrame(parent) {
 }
 
 void ImageView::setImage(const QString &path) {
-  m_originalPixmap = QPixmap(path);
+  m_originalPixmap = {};
+  const QByteArray bytes = readFileBytes(path);
+  if (!bytes.isEmpty()) {
+    QBuffer buffer;
+    buffer.setData(bytes);
+    buffer.open(QIODevice::ReadOnly);
+    QImageReader reader(&buffer);
+    reader.setAutoTransform(true);
+    m_originalPixmap = QPixmap::fromImage(reader.read());
+  } else {
+    m_originalPixmap = QPixmap(path);
+  }
   applyFlip();
   resetCamera();
   updateImageDisplay();

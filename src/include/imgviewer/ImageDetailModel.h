@@ -1,10 +1,11 @@
 #pragma once
 #include <QAbstractListModel>
-#include <QFileInfo>
 #include <QHash>
 #include <QImage>
 #include <QPixmap>
 #include <QSet>
+
+#include <imgviewer/utils.h>
 
 class Filter;
 
@@ -39,7 +40,7 @@ private:
   void requestThumbnail(const QString &path) const;
 
   Filter *m_filter;
-  QList<QFileInfo> m_files;
+  QList<DirectoryEntry> m_files;
   mutable QHash<QString, QPixmap> m_thumbnails;
   mutable QSet<QString> m_pending;
 };

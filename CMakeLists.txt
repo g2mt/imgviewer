@@ -9,6 +9,7 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(KF6KIO REQUIRED CONFIG)
 
 add_executable(imgviewer 
     src/main.cpp 
@@ -33,21 +34,7 @@ add_executable(imgviewer
 )
 target_compile_definitions(imgviewer PRIVATE -DQT_DEPRECATED_WARNINGS)
 target_include_directories(imgviewer PRIVATE src/include)
-target_link_libraries(imgviewer PRIVATE Qt6::Widgets)
-
-find_package(PkgConfig QUIET)
-if(PkgConfig_FOUND)
-  pkg_check_modules(LIBARCHIVE libarchive)
-endif()
-
-if(LIBARCHIVE_FOUND)
-  target_compile_definitions(imgviewer PRIVATE IMGVIEWER_FEAT_ARCHIVE)
-  target_include_directories(imgviewer PRIVATE ${LIBARCHIVE_INCLUDE_DIRS})
-  target_link_libraries(imgviewer PRIVATE ${LIBARCHIVE_LIBRARIES})
-  message(STATUS "libarchive found - archive support enabled")
-else()
-  message(STATUS "libarchive not found - archive support disabled")
-endif()
+target_link_libraries(imgviewer PRIVATE Qt6::Widgets KF6::KIOCore)
 
 include(GNUInstallDirs)
 

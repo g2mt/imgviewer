@@ -4,6 +4,7 @@
 #include <QPixmap>
 #include <QPoint>
 #include <QPointF>
+#include <QString>
 
 // Camera describes the affine mapping between image-space pixels and the
 // widget's screen-space pixels. The point `imageTarget` (in image

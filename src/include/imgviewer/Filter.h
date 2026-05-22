@@ -1,13 +1,9 @@
 #pragma once
-#include <QDir>
 #include <QList>
 #include <QMap>
 #include <QObject>
-#include <QSet>
 #include <QString>
 #include <QStringList>
-#include <QTemporaryDir>
-#include <memory>
 
 enum class SortBy { Name, DateCreated, DateModified };
 
@@ -17,12 +13,12 @@ class Filter : public QObject {
   SortBy m_sortBy = SortBy::Name;
   bool m_descending = false;
   bool m_naturalSort = true;
-  QDir m_currentPath;
+  QString m_currentPath;
   QList<QString> m_tags;
   QMap<QString, QStringList> m_tagMap;
   struct {
-    std::unique_ptr<QTemporaryDir> tempDir; // null when not viewing an archive
     QString sourceDir;
+    QString archiveRoot;
   } m_archive;
 
 public:
@@ -63,7 +59,7 @@ public:
     }
   }
 
-  const QDir &currentPath() const { return m_currentPath; }
+  const QString &currentPath() const { return m_currentPath; }
   void setCurrentPath(const QString &path);
   void navigateDirectory(const QString &directory);
 

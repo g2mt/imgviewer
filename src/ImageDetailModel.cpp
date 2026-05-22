@@ -2,50 +2,18 @@
 #include <imgviewer/ImageDetailModel.h>
 #include <imgviewer/utils.h>
 
+#include <QBuffer>
 #include <QCollator>
-#include <QCryptographicHash>
-#include <QDir>
 #include <QImageReader>
 #include <QPointer>
 #include <QRunnable>
 #include <QThreadPool>
-#include <QUrl>
-
 #include <algorithm>
 
 namespace {
 
-// Returns the path to a cached thumbnail in ~/.cache/thumbnails/
-// ({normal,large,x-large,xx-large}/<md5>.png). Uses XDG_CACHE_HOME or
-// falls back to ~/.cache.
-QString getCachedThumbnailPath(const QString &localFilePath) {
-  QString fileUri = QUrl::fromLocalFile(localFilePath).toString();
-  QByteArray hash =
-      QCryptographicHash::hash(fileUri.toUtf8(), QCryptographicHash::Md5)
-          .toHex();
+constexpr int kRemoteThumbnailSize = ImageDetailModel::kThumbnailSize;
 
-  const char *dirs[] = {"normal", "large", "x-large", "xx-large"};
-
-  const QByteArray xdgCache = qgetenv("XDG_CACHE_HOME");
-  const QString cacheBase = xdgCache.isEmpty()
-                                ? QDir::homePath() + QLatin1String("/.cache")
-                                : QString::fromUtf8(xdgCache);
-  QDir thumbDir(cacheBase + QLatin1String("/thumbnails"));
-
-  for (const char *dir : dirs) {
-    QDir sizeDir(thumbDir.filePath(QLatin1String(dir)));
-    QString path =
-        sizeDir.filePath(QString::fromLatin1(hash) + QLatin1String(".png"));
-    if (QFile::exists(path))
-      return path;
-  }
-  return {};
-}
-
-// Decodes a single image at reduced size on the global thread pool, then
-// hands the result back to the model on its owning thread via a queued
-// invocation. Uses QPointer so that destroying the model while jobs are
-// in-flight is safe.
 class ThumbnailLoader : public QRunnable {
 public:
   ThumbnailLoader(ImageDetailModel *model, const QString &path, int size)
@@ -54,29 +22,25 @@ public:
   }
 
   void run() override {
-    // Try loading a pre-cached thumbnail first.
-    QImage img;
-    QString cachedPath = getCachedThumbnailPath(m_path);
-    if (!cachedPath.isEmpty()) {
-      QImageReader reader(cachedPath);
-      img = reader.read();
-    }
-
-    // Fall back to decoding the original file.
-    if (img.isNull()) {
-      QImageReader reader(m_path);
+    QImage image;
+    const QByteArray bytes = readFileBytes(m_path);
+    if (!bytes.isEmpty()) {
+      QBuffer buffer;
+      buffer.setData(bytes);
+      buffer.open(QIODevice::ReadOnly);
+      QImageReader reader(&buffer);
       reader.setAutoTransform(true);
-      img = reader.read();
+      image = reader.read();
     }
 
-    if (!img.isNull()) {
-      img = img.scaled(m_size, m_size, Qt::KeepAspectRatio,
-                       Qt::SmoothTransformation);
+    if (!image.isNull()) {
+      image = image.scaled(m_size, m_size, Qt::KeepAspectRatio,
+                           Qt::SmoothTransformation);
     }
     if (m_model) {
       QMetaObject::invokeMethod(m_model, "onThumbnailReady",
                                 Qt::QueuedConnection, Q_ARG(QString, m_path),
-                                Q_ARG(QImage, img));
+                                Q_ARG(QImage, image));
     }
   }
 
@@ -103,16 +67,16 @@ int ImageDetailModel::rowCount(const QModelIndex &parent) const {
 QVariant ImageDetailModel::data(const QModelIndex &index, int role) const {
   if (!index.isValid() || index.row() < 0 || index.row() >= m_files.size())
     return {};
-  const QFileInfo &info = m_files[index.row()];
+  const DirectoryEntry &entry = m_files[index.row()];
 
   switch (role) {
   case Qt::DisplayRole:
   case FileNameRole:
-    return info.fileName();
+    return entry.name;
   case FilePathRole:
-    return info.absoluteFilePath();
+    return entry.path;
   case ThumbnailRole: {
-    const QString path = info.absoluteFilePath();
+    const QString path = entry.path;
     auto it = m_thumbnails.constFind(path);
     if (it != m_thumbnails.constEnd())
       return *it;
@@ -130,19 +94,17 @@ void ImageDetailModel::reload() {
   m_thumbnails.clear();
   m_pending.clear();
 
-  QDir dir = m_filter->currentPath();
-  dir.setFilter(QDir::Files | QDir::NoDotAndDotDot);
-
-  QFileInfoList entries = dir.entryInfoList();
+  auto entries = listDirectoryEntries(m_filter->currentPath());
   const QString search = m_filter->search();
-  const QStringList tags = m_filter->tags();
-  entries.removeIf([&](const QFileInfo &info) {
-    if (!isImagePath(info.absoluteFilePath()))
+  const QList<QString> tags = m_filter->tags();
+  entries.removeIf([&](const DirectoryEntry &entry) {
+    if (entry.isDir)
       return true;
-    if (!search.isEmpty() &&
-        !info.fileName().contains(search, Qt::CaseInsensitive))
+    if (!isImagePath(entry.path))
       return true;
-    if (!tags.isEmpty() && !m_filter->fileHasTags(info.absoluteFilePath()))
+    if (!search.isEmpty() && !entry.name.contains(search, Qt::CaseInsensitive))
+      return true;
+    if (!tags.isEmpty() && !m_filter->fileHasTags(entry.path))
       return true;
     return false;
   });
@@ -154,23 +116,23 @@ void ImageDetailModel::reload() {
   const SortBy sortBy = m_filter->sortBy();
   const bool descending = m_filter->descending();
   std::sort(entries.begin(), entries.end(),
-            [&](const QFileInfo &a, const QFileInfo &b) {
+            [&](const DirectoryEntry &a, const DirectoryEntry &b) {
               bool less = false;
               switch (sortBy) {
               case SortBy::Name:
-                less = collator.compare(a.fileName(), b.fileName()) < 0;
+                less = collator.compare(a.name, b.name) < 0;
                 break;
               case SortBy::DateCreated:
-                less = a.birthTime() < b.birthTime();
+                less = a.birthTime < b.birthTime;
                 break;
               case SortBy::DateModified:
-                less = a.lastModified() < b.lastModified();
+                less = a.lastModified < b.lastModified;
                 break;
               }
               return descending ? !less : less;
             });
 
-  m_files = entries;
+  m_files = std::move(entries);
   endResetModel();
 }
 
@@ -179,7 +141,7 @@ void ImageDetailModel::requestThumbnail(const QString &path) const {
     return;
   m_pending.insert(path);
   auto *loader = new ThumbnailLoader(const_cast<ImageDetailModel *>(this), path,
-                                     kThumbnailSize);
+                                     kRemoteThumbnailSize);
   QThreadPool::globalInstance()->start(loader);
 }
 
@@ -191,7 +153,7 @@ void ImageDetailModel::onThumbnailReady(const QString &path,
   m_thumbnails.insert(path, QPixmap::fromImage(image));
 
   for (int i = 0; i < m_files.size(); ++i) {
-    if (m_files[i].absoluteFilePath() == path) {
+    if (m_files[i].path == path) {
       const QModelIndex idx = index(i);
       emit dataChanged(idx, idx, {ThumbnailRole, Qt::DecorationRole});
       break;

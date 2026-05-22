@@ -1,12 +1,36 @@
-#include <QFileInfo>
-#include <imgviewer/utils.h>
-
-#ifdef IMGVIEWER_FEAT_ARCHIVE
+#include <QBuffer>
 #include <QDir>
 #include <QFile>
-#include <archive.h>
-#include <archive_entry.h>
-#endif
+#include <QFileInfo>
+#include <QUrl>
+#include <imgviewer/utils.h>
+
+#include <KIO/ListJob>
+#include <KIO/StoredTransferJob>
+#include <QEventLoop>
+#include <sys/stat.h>
+
+namespace {
+
+QUrl urlFromPath(const QString &path) {
+  QUrl url(path);
+  if (url.scheme().isEmpty() || url.scheme() == QLatin1String("file"))
+    return QUrl::fromLocalFile(url.isLocalFile() ? url.toLocalFile() : path);
+  return url;
+}
+
+bool isLocalPath(const QString &path) {
+  const QUrl url(path);
+  return url.scheme().isEmpty() || url.scheme() == QLatin1String("file") ||
+         url.isLocalFile();
+}
+
+QString localPath(const QString &path) {
+  const QUrl url(path);
+  return url.isLocalFile() ? url.toLocalFile() : path;
+}
+
+} // namespace
 
 bool isImagePath(const QString &path) {
   const QString ext = QFileInfo(path).suffix().toLower();
@@ -24,53 +48,102 @@ bool isArchivePath(const QString &path) {
          ext == "zst" || ext == "iso" || ext == "cpio" || ext == "ar";
 }
 
-#ifdef IMGVIEWER_FEAT_ARCHIVE
-bool extractArchiveTo(const QString &archivePath, const QString &destDir) {
-  struct archive *a = archive_read_new();
-  archive_read_support_filter_all(a);
-  archive_read_support_format_all(a);
+QString childPath(const QString &basePath, const QString &childName) {
+  if (isLocalPath(basePath))
+    return QDir(localPath(basePath)).filePath(childName);
 
-  if (archive_read_open_filename(a, archivePath.toUtf8().constData(), 10240) !=
-      ARCHIVE_OK) {
-    archive_read_free(a);
-    return false;
+  QUrl url = urlFromPath(basePath);
+  QString path = url.path();
+  if (!path.endsWith(QLatin1Char('/')))
+    path += QLatin1Char('/');
+  url.setPath(path + childName);
+  return url.toString();
+}
+
+QString parentPath(const QString &path) {
+  if (isLocalPath(path)) {
+    QDir dir(localPath(path));
+    dir.cdUp();
+    return dir.absolutePath();
   }
 
-  struct archive_entry *entry;
-  while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
-    QString entryPath = QString::fromUtf8(archive_entry_pathname(entry));
-    while (entryPath.startsWith(QLatin1Char('/')))
-      entryPath.remove(0, 1);
-    if (entryPath.contains(QLatin1String("..")))
-      continue;
+  QUrl url = urlFromPath(path);
+  QString current = url.path();
+  if (current.isEmpty() || current == QLatin1String("/"))
+    return {};
+  if (current.endsWith(QLatin1Char('/')) && current.size() > 1)
+    current.chop(1);
+  url.setPath(current);
+  url = url.adjusted(QUrl::RemoveFilename);
+  return url.toString();
+}
 
-    const QString fullPath = destDir + QLatin1Char('/') + entryPath;
+QString archiveUrlForPath(const QString &path) {
+  QUrl url;
+  url.setScheme(QStringLiteral("zip"));
+  url.setPath(path);
+  return url.toString();
+}
 
-    mode_t fileType = archive_entry_filetype(entry);
-    if (fileType == AE_IFDIR) {
-      QDir().mkpath(fullPath);
-    } else if (fileType == AE_IFREG) {
-      QDir().mkpath(QFileInfo(fullPath).absolutePath());
-      QFile file(fullPath);
-      if (!file.open(QIODevice::WriteOnly))
-        continue;
+QList<DirectoryEntry> listDirectoryEntries(const QString &path) {
+  QList<DirectoryEntry> entries;
 
-      const void *buf;
-      size_t size;
-      la_int64_t offset;
-      while (archive_read_data_block(a, &buf, &size, &offset) == ARCHIVE_OK)
-        file.write(static_cast<const char *>(buf), size);
+  if (isLocalPath(path)) {
+    QDir dir(localPath(path));
+    const QFileInfoList infos =
+        dir.entryInfoList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot,
+                          QDir::Name);
+    entries.reserve(infos.size());
+    for (const QFileInfo &info : infos) {
+      DirectoryEntry entry;
+      entry.name = info.fileName();
+      entry.path = info.absoluteFilePath();
+      entry.isDir = info.isDir();
+      entry.birthTime = info.birthTime();
+      entry.lastModified = info.lastModified();
+      entries.append(entry);
     }
+    return entries;
   }
 
-  int ret = archive_read_close(a);
-  archive_read_free(a);
-  return ret == ARCHIVE_OK;
+  const QUrl url = urlFromPath(path);
+  KIO::ListJob *job = KIO::listDir(url, KIO::HideProgressInfo);
+  QEventLoop loop;
+
+  QObject::connect(job, &KIO::ListJob::entries, &loop,
+                   [&](auto, const auto &list) {
+                     for (const auto &uds : list) {
+                       DirectoryEntry entry;
+                       entry.name = uds.stringValue(KIO::UDSEntry::UDS_NAME);
+                       if (entry.name.isEmpty())
+                         continue;
+                       const mode_t mode =
+                           uds.numberValue(KIO::UDSEntry::UDS_FILE_TYPE);
+                       entry.isDir = S_ISDIR(mode);
+                       entry.path = childPath(path, entry.name);
+                       entries.append(entry);
+                     }
+                   });
+  QObject::connect(job, &KIO::ListJob::result, &loop,
+                   [&loop](auto...) { loop.quit(); });
+  loop.exec();
+  return entries;
 }
-#else
-bool extractArchiveTo(const QString &archivePath, const QString &destDir) {
-  Q_UNUSED(archivePath);
-  Q_UNUSED(destDir);
-  return false;
+
+QByteArray readFileBytes(const QString &path) {
+  if (isLocalPath(path)) {
+    QFile file(localPath(path));
+    if (!file.open(QIODevice::ReadOnly))
+      return {};
+    return file.readAll();
+  }
+
+  KIO::StoredTransferJob *job = KIO::storedGet(urlFromPath(path), KIO::NoReload);
+  QEventLoop loop;
+  QObject::connect(job, &KIO::StoredTransferJob::result, &loop,
+                   [&loop](auto...) { loop.quit(); });
+  loop.exec();
+  if (job->error())
+    return {};
+  return job->data();
 }
-#endif

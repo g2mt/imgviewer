@@ -2,6 +2,7 @@
 #include <imgviewer/utils.h>
 
 #include <QFile>
+#include <QFileInfo>
 #include <QRegularExpression>
 #include <QTextStream>
 #include <qlogging.h>
@@ -82,44 +83,55 @@ bool Filter::fileHasTags(const QString &filePath) const {
 }
 
 void Filter::setCurrentPath(const QString &path) {
-  m_archive.tempDir.reset();
   m_archive.sourceDir.clear();
-  m_currentPath.setPath(path);
+  m_archive.archiveRoot.clear();
+  m_currentPath = path;
   emit changed();
 }
 
 void Filter::navigateDirectory(const QString &directory) {
   if (directory == "..") {
-    if (m_archive.tempDir &&
-        m_currentPath.absolutePath() == m_archive.tempDir->path()) {
-      // At the root of an archive temp dir - go back to the archive source.
-      m_archive.tempDir.reset();
-      m_currentPath.setPath(m_archive.sourceDir);
+    if (!m_archive.archiveRoot.isEmpty() &&
+        m_currentPath == m_archive.archiveRoot) {
+      m_currentPath = m_archive.sourceDir;
       m_archive.sourceDir.clear();
+      m_archive.archiveRoot.clear();
       emit changed();
       return;
     }
-    m_currentPath.cdUp();
+    m_currentPath = parentPath(m_currentPath);
     emit changed();
     return;
   }
 
-  // When not already inside an archive, try to extract archive files.
-  if (!m_archive.tempDir) {
-    const QString fullPath = m_currentPath.absoluteFilePath(directory);
-    const QFileInfo info(fullPath);
-    if (info.isFile() && isArchivePath(fullPath)) {
-      auto tempDir = std::make_unique<QTemporaryDir>();
-      if (tempDir->isValid() && extractArchiveTo(fullPath, tempDir->path())) {
-        m_archive.sourceDir = m_currentPath.absolutePath();
-        m_archive.tempDir = std::move(tempDir);
-        m_currentPath.setPath(m_archive.tempDir->path());
-        emit changed();
-        return;
-      }
-    }
+  if (m_currentPath.isEmpty()) {
+    m_currentPath = directory;
+    emit changed();
+    return;
   }
 
-  m_currentPath.cd(directory);
+  if (m_archive.archiveRoot.isEmpty()) {
+    const QString fullPath = directory.contains(QLatin1Char('/')) ||
+                                     directory.contains(QLatin1String(":"))
+                                 ? directory
+                                 : childPath(m_currentPath, directory);
+    const QFileInfo info(fullPath);
+    if (info.isFile() && isArchivePath(fullPath)) {
+      m_archive.sourceDir = m_currentPath;
+      m_archive.archiveRoot = archiveUrlForPath(fullPath);
+      m_currentPath = m_archive.archiveRoot;
+      emit changed();
+      return;
+    }
+
+    m_currentPath = fullPath;
+    emit changed();
+    return;
+  }
+
+  m_currentPath = directory.contains(QLatin1Char('/')) ||
+                          directory.contains(QLatin1String(":"))
+                      ? directory
+                      : childPath(m_currentPath, directory);
   emit changed();
 }
