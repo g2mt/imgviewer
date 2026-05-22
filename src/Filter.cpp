@@ -109,9 +109,9 @@ QList<DirectoryEntry> Filter::listDirectoryEntries() const {
         QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
     entries.reserve(infos.size());
     for (const QFileInfo &info : infos) {
-      DirectoryEntry entry;
       if (info.fileName() == "." || info.fileName() == "..")
         continue;
+      DirectoryEntry entry;
       entry.path = QUrl::fromLocalFile(info.absoluteFilePath());
       entry.isDir = info.isDir();
       entry.birthTime = info.birthTime();
@@ -132,7 +132,7 @@ QList<DirectoryEntry> Filter::listDirectoryEntries() const {
         for (const auto &uds : list) {
           DirectoryEntry entry;
           const QString name = uds.stringValue(KIO::UDSEntry::UDS_NAME);
-          if (name.isEmpty())
+          if (name.isEmpty() || name == "." || name == "..")
             continue;
           const mode_t mode = uds.numberValue(KIO::UDSEntry::UDS_FILE_TYPE);
           entry.isDir = S_ISDIR(mode);

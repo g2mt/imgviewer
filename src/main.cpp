@@ -4,6 +4,7 @@
 
 int main(int argc, char *argv[]) {
   QApplication app(argc, argv);
+  app.setDesktopFileName("io.github.QtImgViewer");
   QCoreApplication::setOrganizationName("QtImgViewer");
   QCoreApplication::setApplicationName("ImageViewer");
   MainWindow win;
