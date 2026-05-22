@@ -1,56 +1,15 @@
 #include <imgviewer/Filter.h>
 #include <imgviewer/ImageDetailModel.h>
 
+#include <KIO/StoredTransferJob>
 #include <QBuffer>
 #include <QCollator>
 #include <QImageReader>
-#include <QPointer>
-#include <QRunnable>
-#include <QThreadPool>
 #include <algorithm>
 
 namespace {
 
 constexpr int kRemoteThumbnailSize = ImageDetailModel::kThumbnailSize;
-
-class ThumbnailLoader : public QRunnable {
-public:
-  ThumbnailLoader(ImageDetailModel *model, const DirectoryEntry &entry,
-                  int size)
-      : m_model(model), m_entry(entry), m_path(entry.path.toString()),
-        m_size(size) {
-    setAutoDelete(true);
-  }
-
-  void run() override {
-    QImage image;
-    const QByteArray bytes = m_entry.readFileBytes();
-    if (!bytes.isEmpty()) {
-      QBuffer buffer;
-      buffer.setData(bytes);
-      buffer.open(QIODevice::ReadOnly);
-      QImageReader reader(&buffer);
-      reader.setAutoTransform(true);
-      image = reader.read();
-    }
-
-    if (!image.isNull()) {
-      image = image.scaled(m_size, m_size, Qt::KeepAspectRatio,
-                           Qt::SmoothTransformation);
-    }
-    if (m_model) {
-      QMetaObject::invokeMethod(m_model, "onThumbnailReady",
-                                Qt::QueuedConnection, Q_ARG(QString, m_path),
-                                Q_ARG(QImage, image));
-    }
-  }
-
-private:
-  QPointer<ImageDetailModel> m_model;
-  DirectoryEntry m_entry;
-  QString m_path;
-  int m_size;
-};
 
 } // namespace
 
@@ -143,9 +102,32 @@ void ImageDetailModel::requestThumbnail(const DirectoryEntry &entry) const {
   if (m_pending.contains(path))
     return;
   m_pending.insert(path);
-  auto *loader = new ThumbnailLoader(const_cast<ImageDetailModel *>(this),
-                                     entry, kRemoteThumbnailSize);
-  QThreadPool::globalInstance()->start(loader);
+
+  auto *self = const_cast<ImageDetailModel *>(this);
+  KIO::StoredTransferJob *job = KIO::storedGet(entry.path, KIO::NoReload);
+  connect(job, &KIO::StoredTransferJob::result, self,
+          [self, job, path]() {
+            if (!self->m_pending.contains(path))
+              return;
+
+            QImage image;
+            if (!job->error()) {
+              const QByteArray bytes = job->data();
+              QBuffer buffer;
+              buffer.setData(bytes);
+              buffer.open(QIODevice::ReadOnly);
+              QImageReader reader(&buffer);
+              reader.setAutoTransform(true);
+              image = reader.read();
+            }
+
+            if (!image.isNull()) {
+              image = image.scaled(kRemoteThumbnailSize, kRemoteThumbnailSize,
+                                   Qt::KeepAspectRatio,
+                                   Qt::SmoothTransformation);
+            }
+            self->onThumbnailReady(path, image);
+          });
 }
 
 void ImageDetailModel::onThumbnailReady(const QString &path,
