@@ -193,17 +193,13 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
   }
 
   // Local entry that looks like an archive — navigate into it via zip:// scheme
-  if (entry.path.isLocalFile()) {
-    DirectoryEntry checkEntry;
-    checkEntry.path = entry.path;
-    if (checkEntry.isArchivePath()) {
-      QUrl archiveUrl;
-      archiveUrl.setScheme(QStringLiteral("zip"));
-      archiveUrl.setPath(entry.path.toLocalFile());
-      m_currentUrl = archiveUrl;
-      emit changed();
-      return;
-    }
+  if (entry.isArchivePath()) {
+    QUrl archiveUrl;
+    archiveUrl.setScheme(QStringLiteral("zip"));
+    archiveUrl.setPath(entry.path.toLocalFile());
+    m_currentUrl = archiveUrl;
+    emit changed();
+    return;
   }
 
   // Normal directory navigation: switch to the entry's path

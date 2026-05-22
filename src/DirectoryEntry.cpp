@@ -3,6 +3,8 @@
 #include <QFileInfo>
 
 bool DirectoryEntry::isImagePath() const {
+  if (!path.isLocalFile())
+    return false;
   const QString ext = QFileInfo(path.fileName()).suffix().toLower();
   return ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" ||
          ext == "gif" || ext == "pbm" || ext == "pgm" || ext == "ppm" ||
@@ -11,6 +13,8 @@ bool DirectoryEntry::isImagePath() const {
 }
 
 bool DirectoryEntry::isArchivePath() const {
+  if (!path.isLocalFile())
+    return false;
   const QString ext = QFileInfo(path.fileName()).suffix().toLower();
   return ext == "zip" || ext == "tar" || ext == "tgz" || ext == "tbz2" ||
          ext == "txz" || ext == "7z" || ext == "rar" || ext == "gz" ||
