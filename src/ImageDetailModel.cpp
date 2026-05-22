@@ -63,7 +63,8 @@ void ImageDetailModel::reload() {
       return true;
     if (!entry.isImagePath())
       return true;
-    if (!search.isEmpty() && !entry.path.fileName().contains(search, Qt::CaseInsensitive))
+    if (!search.isEmpty() &&
+        !entry.path.fileName().contains(search, Qt::CaseInsensitive))
       return true;
     if (!tags.isEmpty() && !m_filter->fileHasTags(entry.path.toString()))
       return true;
@@ -81,7 +82,8 @@ void ImageDetailModel::reload() {
               bool less = false;
               switch (sortBy) {
               case SortBy::Name:
-                less = collator.compare(a.path.fileName(), b.path.fileName()) < 0;
+                less =
+                    collator.compare(a.path.fileName(), b.path.fileName()) < 0;
                 break;
               case SortBy::DateCreated:
                 less = a.birthTime < b.birthTime;
@@ -105,29 +107,27 @@ void ImageDetailModel::requestThumbnail(const DirectoryEntry &entry) const {
 
   auto *self = const_cast<ImageDetailModel *>(this);
   KIO::StoredTransferJob *job = KIO::storedGet(entry.path, KIO::NoReload);
-  connect(job, &KIO::StoredTransferJob::result, self,
-          [self, job, path]() {
-            if (!self->m_pending.contains(path))
-              return;
+  connect(job, &KIO::StoredTransferJob::result, self, [self, job, path]() {
+    if (!self->m_pending.contains(path))
+      return;
 
-            QImage image;
-            if (!job->error()) {
-              const QByteArray bytes = job->data();
-              QBuffer buffer;
-              buffer.setData(bytes);
-              buffer.open(QIODevice::ReadOnly);
-              QImageReader reader(&buffer);
-              reader.setAutoTransform(true);
-              image = reader.read();
-            }
+    QImage image;
+    if (!job->error()) {
+      const QByteArray bytes = job->data();
+      QBuffer buffer;
+      buffer.setData(bytes);
+      buffer.open(QIODevice::ReadOnly);
+      QImageReader reader(&buffer);
+      reader.setAutoTransform(true);
+      image = reader.read();
+    }
 
-            if (!image.isNull()) {
-              image = image.scaled(kRemoteThumbnailSize, kRemoteThumbnailSize,
-                                   Qt::KeepAspectRatio,
-                                   Qt::SmoothTransformation);
-            }
-            self->onThumbnailReady(path, image);
-          });
+    if (!image.isNull()) {
+      image = image.scaled(kRemoteThumbnailSize, kRemoteThumbnailSize,
+                           Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    }
+    self->onThumbnailReady(path, image);
+  });
 }
 
 void ImageDetailModel::onThumbnailReady(const QString &path,
