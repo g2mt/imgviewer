@@ -1,6 +1,5 @@
 #include <imgviewer/Filter.h>
 #include <imgviewer/ImageDetailModel.h>
-#include <imgviewer/utils.h>
 
 #include <QBuffer>
 #include <QCollator>
@@ -16,14 +15,15 @@ constexpr int kRemoteThumbnailSize = ImageDetailModel::kThumbnailSize;
 
 class ThumbnailLoader : public QRunnable {
 public:
-  ThumbnailLoader(ImageDetailModel *model, const QString &path, int size)
-      : m_model(model), m_path(path), m_size(size) {
+  ThumbnailLoader(ImageDetailModel *model, Filter *filter, const QString &path,
+                  int size)
+      : m_model(model), m_filter(filter), m_path(path), m_size(size) {
     setAutoDelete(true);
   }
 
   void run() override {
     QImage image;
-    const QByteArray bytes = readFileBytes(m_path);
+    const QByteArray bytes = m_filter->readFileBytes(m_path);
     if (!bytes.isEmpty()) {
       QBuffer buffer;
       buffer.setData(bytes);
@@ -46,6 +46,7 @@ public:
 
 private:
   QPointer<ImageDetailModel> m_model;
+  Filter *m_filter;
   QString m_path;
   int m_size;
 };
@@ -94,13 +95,13 @@ void ImageDetailModel::reload() {
   m_thumbnails.clear();
   m_pending.clear();
 
-  auto entries = listDirectoryEntries(m_filter->currentPath());
+  auto entries = m_filter->listDirectoryEntries(m_filter->currentPath());
   const QString search = m_filter->search();
   const QList<QString> tags = m_filter->tags();
   entries.removeIf([&](const DirectoryEntry &entry) {
     if (entry.isDir)
       return true;
-    if (!isImagePath(entry.path))
+    if (!m_filter->isImagePath(entry.path))
       return true;
     if (!search.isEmpty() && !entry.name.contains(search, Qt::CaseInsensitive))
       return true;
@@ -140,8 +141,8 @@ void ImageDetailModel::requestThumbnail(const QString &path) const {
   if (m_pending.contains(path))
     return;
   m_pending.insert(path);
-  auto *loader = new ThumbnailLoader(const_cast<ImageDetailModel *>(this), path,
-                                     kRemoteThumbnailSize);
+  auto *loader = new ThumbnailLoader(const_cast<ImageDetailModel *>(this),
+                                     m_filter, path, kRemoteThumbnailSize);
   QThreadPool::globalInstance()->start(loader);
 }
 

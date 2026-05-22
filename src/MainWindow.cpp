@@ -157,7 +157,7 @@ void MainWindow::setupMainLayout(QVBoxLayout *mainLayout) {
 }
 
 void MainWindow::setupImageView(QSplitter *horizontalSplitter) {
-  m_imageView = new ImageView();
+  m_imageView = new ImageView(&filter);
   horizontalSplitter->addWidget(m_imageView);
   horizontalSplitter->setStretchFactor(0, 6);
   horizontalSplitter->setCollapsible(0, false);

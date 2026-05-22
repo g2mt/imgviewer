@@ -3,10 +3,10 @@
 #include <QDragMoveEvent>
 #include <QDropEvent>
 #include <QGestureEvent>
+#include <QImageReader>
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
-#include <QImageReader>
 #include <QPinchGesture>
 #include <QResizeEvent>
 #include <QTransform>
@@ -15,7 +15,7 @@
 #include <QWheelEvent>
 #include <algorithm>
 #include <imgviewer/ImageView.h>
-#include <imgviewer/utils.h>
+#include <imgviewer/Filter.h>
 #include <qevent.h>
 
 namespace {
@@ -26,7 +26,8 @@ constexpr float kMinZoom = 0.01f;
 constexpr float kMaxZoom = 100.0f;
 } // namespace
 
-ImageView::ImageView(QWidget *parent) : QFrame(parent) {
+ImageView::ImageView(Filter *filter, QWidget *parent)
+    : QFrame(parent), m_filter(filter) {
   QVBoxLayout *layout = new QVBoxLayout(this);
   layout->setContentsMargins(0, 0, 0, 0);
 
@@ -41,7 +42,7 @@ ImageView::ImageView(QWidget *parent) : QFrame(parent) {
 
 void ImageView::setImage(const QString &path) {
   m_originalPixmap = {};
-  const QByteArray bytes = readFileBytes(path);
+  const QByteArray bytes = m_filter->readFileBytes(path);
   if (!bytes.isEmpty()) {
     QBuffer buffer;
     buffer.setData(bytes);
@@ -153,7 +154,7 @@ void ImageView::dragEnterEvent(QDragEnterEvent *event) {
     for (const QUrl &url : event->mimeData()->urls()) {
       if (url.isLocalFile()) {
         QString path = url.toLocalFile();
-        if (isImagePath(path)) {
+        if (m_filter->isImagePath(path)) {
           event->acceptProposedAction();
           return;
         }

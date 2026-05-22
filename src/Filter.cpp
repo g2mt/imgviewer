@@ -1,13 +1,37 @@
 #include <imgviewer/Filter.h>
-#include <imgviewer/utils.h>
 
+#include <KIO/ListJob>
+#include <KIO/StoredTransferJob>
+#include <QBuffer>
+#include <QDir>
+#include <QEventLoop>
 #include <QFile>
 #include <QFileInfo>
-#include <QRegularExpression>
 #include <QTextStream>
-#include <qlogging.h>
+#include <QUrl>
+#include <sys/stat.h>
 
-static QStringList parseCsvLine(const QString &line) {
+namespace {
+
+QUrl urlFromPath(const QString &path) {
+  QUrl url(path);
+  if (url.scheme().isEmpty() || url.scheme() == QLatin1String("file"))
+    return QUrl::fromLocalFile(url.isLocalFile() ? url.toLocalFile() : path);
+  return url;
+}
+
+bool isLocalPath(const QString &path) {
+  const QUrl url(path);
+  return url.scheme().isEmpty() || url.scheme() == QLatin1String("file") ||
+         url.isLocalFile();
+}
+
+QString localPath(const QString &path) {
+  const QUrl url(path);
+  return url.isLocalFile() ? url.toLocalFile() : path;
+}
+
+QStringList parseCsvLine(const QString &line) {
   QStringList fields;
   QString field;
   bool escaped = false;
@@ -27,6 +51,140 @@ static QStringList parseCsvLine(const QString &line) {
   }
   fields.append(field);
   return fields;
+}
+
+} // namespace
+
+QString Filter::resolvePath(const QString &path) const {
+  QUrl url(path);
+  if (url.fileName() == "." || url.fileName() == "..")
+    return {};
+  if (url.scheme().isEmpty() && !QFileInfo(path).isAbsolute()) {
+    if (m_currentPath.isEmpty())
+      return path;
+    return childPath(m_currentPath, path);
+  }
+  return path;
+}
+
+bool Filter::isImagePath(const QString &path) const {
+  const QString resolved = resolvePath(path);
+  if (resolved.isEmpty())
+    return false;
+  const QString ext = QFileInfo(resolved).suffix().toLower();
+  return ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" ||
+         ext == "gif" || ext == "pbm" || ext == "pgm" || ext == "ppm" ||
+         ext == "xbm" || ext == "xpm" || ext == "svg" || ext == "webp" ||
+         ext == "tiff" || ext == "tif" || ext == "ico";
+}
+
+bool Filter::isArchivePath(const QString &path) const {
+  const QString resolved = resolvePath(path);
+  if (resolved.isEmpty())
+    return false;
+  const QString ext = QFileInfo(resolved).suffix().toLower();
+  return ext == "zip" || ext == "tar" || ext == "tgz" || ext == "tbz2" ||
+         ext == "txz" || ext == "7z" || ext == "rar" || ext == "gz" ||
+         ext == "bz2" || ext == "xz" || ext == "lz" || ext == "lzma" ||
+         ext == "zst" || ext == "iso" || ext == "cpio" || ext == "ar";
+}
+
+QString Filter::childPath(const QString &basePath,
+                          const QString &childName) const {
+  if (isLocalPath(basePath))
+    return QDir(localPath(basePath)).filePath(childName);
+
+  QUrl url = urlFromPath(basePath);
+  QString path = url.path();
+  if (!path.endsWith(QLatin1Char('/')))
+    path += QLatin1Char('/');
+  url.setPath(path + childName);
+  return url.toString();
+}
+
+QString Filter::parentPath(const QString &path) const {
+  if (isLocalPath(path)) {
+    QDir dir(localPath(path));
+    dir.cdUp();
+    return dir.absolutePath();
+  }
+
+  QUrl url = urlFromPath(path);
+  QString current = url.path();
+  if (current.isEmpty() || current == QLatin1String("/"))
+    return {};
+  if (current.endsWith(QLatin1Char('/')) && current.size() > 1)
+    current.chop(1);
+  url.setPath(current);
+  url = url.adjusted(QUrl::RemoveFilename);
+  return url.toString();
+}
+
+QList<DirectoryEntry> Filter::listDirectoryEntries(const QString &path) const {
+  QList<DirectoryEntry> entries;
+
+  if (isLocalPath(path)) {
+    QDir dir(localPath(path));
+    const QFileInfoList infos = dir.entryInfoList(
+        QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
+    entries.reserve(infos.size());
+    for (const QFileInfo &info : infos) {
+      DirectoryEntry entry;
+      entry.name = info.fileName();
+      if (entry.name == "." || entry.name == "..")
+        continue;
+      entry.path = info.absoluteFilePath();
+      entry.isDir = info.isDir();
+      entry.birthTime = info.birthTime();
+      entry.lastModified = info.lastModified();
+      entries.append(entry);
+    }
+    return entries;
+  }
+
+  const QUrl url = urlFromPath(path);
+  KIO::ListJob *job = KIO::listDir(url, KIO::HideProgressInfo);
+  QEventLoop loop;
+
+  QObject::connect(
+      job, &KIO::ListJob::entries, &loop, [&](auto, const auto &list) {
+        for (const auto &uds : list) {
+          DirectoryEntry entry;
+          entry.name = uds.stringValue(KIO::UDSEntry::UDS_NAME);
+          if (entry.name.isEmpty())
+            continue;
+          const mode_t mode = uds.numberValue(KIO::UDSEntry::UDS_FILE_TYPE);
+          entry.isDir = S_ISDIR(mode);
+          entry.path = childPath(path, entry.name);
+          entries.append(entry);
+        }
+      });
+  QObject::connect(job, &KIO::ListJob::result, &loop,
+                   [&loop](auto...) { loop.quit(); });
+  loop.exec();
+  return entries;
+}
+
+QByteArray Filter::readFileBytes(const QString &path) const {
+  const QString resolved = resolvePath(path);
+  if (resolved.isEmpty())
+    return {};
+  if (isLocalPath(resolved)) {
+    QFile file(localPath(resolved));
+    if (!file.open(QIODevice::ReadOnly))
+      return {};
+    return file.readAll();
+  }
+
+  KIO::StoredTransferJob *job =
+      KIO::storedGet(urlFromPath(resolved), KIO::NoReload);
+  QEventLoop loop;
+  QObject::connect(job, &KIO::StoredTransferJob::result, &loop,
+                   [&loop](auto...) { loop.quit(); });
+  loop.exec();
+  if (job->error())
+    return {};
+  return job->data();
 }
 
 void Filter::loadTagsFile(const QString &tagsPath, const QString &pathReplace) {
@@ -118,7 +276,10 @@ void Filter::navigateDirectory(const QString &directory) {
     const QFileInfo info(fullPath);
     if (info.isFile() && isArchivePath(fullPath)) {
       m_archive.sourceDir = m_currentPath;
-      m_archive.archiveRoot = archiveUrlForPath(fullPath);
+      QUrl url;
+      url.setScheme(QStringLiteral("zip"));
+      url.setPath(fullPath);
+      m_archive.archiveRoot = url.toString();
       m_currentPath = m_archive.archiveRoot;
       emit changed();
       return;

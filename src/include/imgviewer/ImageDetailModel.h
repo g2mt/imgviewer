@@ -5,7 +5,7 @@
 #include <QPixmap>
 #include <QSet>
 
-#include <imgviewer/utils.h>
+#include <imgviewer/Filter.h>
 
 class Filter;
 

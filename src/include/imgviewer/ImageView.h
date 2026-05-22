@@ -6,6 +6,8 @@
 #include <QPointF>
 #include <QString>
 
+class Filter;
+
 // Camera describes the affine mapping between image-space pixels and the
 // widget's screen-space pixels. The point `imageTarget` (in image
 // coordinates) is mapped to the widget position `offset` (relative to the
@@ -29,7 +31,7 @@ class ImageView : public QFrame {
   Q_OBJECT
 
 public:
-  ImageView(QWidget *parent = nullptr);
+  ImageView(Filter *filter, QWidget *parent = nullptr);
   void setImage(const QString &path);
   void setFlipHorizontal(bool flip);
   void setFlipVertical(bool flip);
@@ -59,6 +61,7 @@ private:
   // Rebuild m_pixmap from m_originalPixmap with current flip flags.
   void applyFlip();
 
+  Filter *m_filter;
   QLabel *m_placeholder;
   QPixmap m_originalPixmap;
   QPixmap m_pixmap;

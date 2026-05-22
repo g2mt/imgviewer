@@ -1,6 +1,5 @@
 #include <imgviewer/DirectoryList.h>
 #include <imgviewer/Filter.h>
-#include <imgviewer/utils.h>
 
 #include <QDir>
 #include <QHeaderView>
@@ -28,9 +27,9 @@ void DirectoryList::populate() {
   upItem->setText(1, "..");
   upItem->setData(1, Qt::UserRole, "..");
 
-  const auto entries = listDirectoryEntries(m_filter->currentPath());
+  const auto entries = m_filter->listDirectoryEntries(m_filter->currentPath());
   for (const auto &entry : entries) {
-    if (entry.isDir || isArchivePath(entry.path)) {
+    if (entry.isDir || m_filter->isArchivePath(entry.name)) {
       QTreeWidgetItem *item = new QTreeWidgetItem(this);
       item->setIcon(0, entry.isDir ? QIcon::fromTheme("folder")
                                    : QIcon::fromTheme(
