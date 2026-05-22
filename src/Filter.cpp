@@ -162,20 +162,10 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
     // Inside a zip archive: walk up the virtual path, fall back to local file
     // system
     if (m_currentUrl.scheme() == QLatin1String("zip")) {
-      QString path = m_currentUrl.path();
-      if (path.endsWith(QLatin1Char('/')))
-        path.chop(1);
-      int slash = path.lastIndexOf(QLatin1Char('/'));
-      if (slash >= 0)
-        path = path.left(slash);
-
-      if (QFile::exists(path)) {
-        slash = path.lastIndexOf(QLatin1Char('/'));
-        if (slash >= 0)
-          path = path.left(slash);
-        m_currentUrl = QUrl::fromLocalFile(path);
-      } else {
-        m_currentUrl.setPath(path);
+      QUrl url = m_currentUrl.resolved(QUrl(".."));
+      m_currentUrl = url;
+      if (QFile::exists(url.path())) {
+        m_currentUrl.setScheme("file");
       }
       emit changed();
       return;
