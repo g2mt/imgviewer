@@ -96,7 +96,7 @@ void ImageDetailModel::reload() {
   m_thumbnails.clear();
   m_pending.clear();
 
-  auto entries = m_filter->listDirectoryEntries(m_filter->currentPath());
+  auto entries = m_filter->listDirectoryEntries();
   const QString search = m_filter->search();
   const QList<QString> tags = m_filter->tags();
   entries.removeIf([&](const DirectoryEntry &entry) {

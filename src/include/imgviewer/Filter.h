@@ -50,9 +50,9 @@ public:
     }
   }
 
-  const QString &currentPath() const { return m_currentPath; }
+  const QUrl &currentPath() const { return m_currentPath; }
   void setCurrentPath(const QString &path);
-  void navigateDirectory(const QString &directory);
+  void navigateDirectory(const DirectoryEntry &directory);
 
   const QList<QString> &tags() const { return m_tags; }
   void setTags(const QList<QString> &t) {
@@ -65,22 +65,14 @@ public:
   const QMap<QString, QStringList> &tagMap() const { return m_tagMap; }
   void loadTagsFile(const QString &tagsPath, const QString &pathReplace);
   bool fileHasTags(const QString &filePath) const;
-  QList<DirectoryEntry> listDirectoryEntries(const QString &path) const;
+  QList<DirectoryEntry> listDirectoryEntries() const;
 
 private:
-  QString resolvePath(const QString &path) const;
-  QString childPath(const QString &basePath, const QString &childName) const;
-  QString parentPath(const QString &path) const;
-
   QString m_search;
   SortBy m_sortBy = SortBy::Name;
   bool m_descending = false;
   bool m_naturalSort = true;
-  QString m_currentPath;
+  QUrl m_currentPath;
   QList<QString> m_tags;
   QMap<QString, QStringList> m_tagMap;
-  struct {
-    QString sourceDir;
-    QString archiveRoot;
-  } m_archive;
 };

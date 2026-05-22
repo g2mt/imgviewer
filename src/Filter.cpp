@@ -13,24 +13,6 @@
 
 namespace {
 
-QUrl urlFromPath(const QString &path) {
-  QUrl url(path);
-  if (url.scheme().isEmpty() || url.scheme() == QLatin1String("file"))
-    return QUrl::fromLocalFile(url.isLocalFile() ? url.toLocalFile() : path);
-  return url;
-}
-
-bool isLocalPath(const QString &path) {
-  const QUrl url(path);
-  return url.scheme().isEmpty() || url.scheme() == QLatin1String("file") ||
-         url.isLocalFile();
-}
-
-QString localPath(const QString &path) {
-  const QUrl url(path);
-  return url.isLocalFile() ? url.toLocalFile() : path;
-}
-
 QStringList parseCsvLine(const QString &line) {
   QStringList fields;
   QString field;
@@ -55,54 +37,17 @@ QStringList parseCsvLine(const QString &line) {
 
 } // namespace
 
-QString Filter::resolvePath(const QString &path) const {
-  QUrl url(path);
-  if (url.fileName() == "." || url.fileName() == "..")
-    return {};
-  if (url.scheme().isEmpty() && !QFileInfo(path).isAbsolute()) {
-    if (m_currentPath.isEmpty())
-      return path;
-    return childPath(m_currentPath, path);
-  }
-  return path;
-}
-
-QString Filter::childPath(const QString &basePath,
-                          const QString &childName) const {
-  if (isLocalPath(basePath))
-    return QDir(localPath(basePath)).filePath(childName);
-
-  QUrl url = urlFromPath(basePath);
-  QString path = url.path();
-  if (!path.endsWith(QLatin1Char('/')))
-    path += QLatin1Char('/');
-  url.setPath(path + childName);
-  return url.toString();
-}
-
-QString Filter::parentPath(const QString &path) const {
-  if (isLocalPath(path)) {
-    QDir dir(localPath(path));
-    dir.cdUp();
-    return dir.absolutePath();
-  }
-
-  QUrl url = urlFromPath(path);
-  QString current = url.path();
-  if (current.isEmpty() || current == QLatin1String("/"))
-    return {};
-  if (current.endsWith(QLatin1Char('/')) && current.size() > 1)
-    current.chop(1);
-  url.setPath(current);
-  url = url.adjusted(QUrl::RemoveFilename);
-  return url.toString();
-}
-
-QList<DirectoryEntry> Filter::listDirectoryEntries(const QString &path) const {
+QList<DirectoryEntry> Filter::listDirectoryEntries() const {
   QList<DirectoryEntry> entries;
 
-  if (isLocalPath(path)) {
-    QDir dir(localPath(path));
+  bool isLocal = m_currentPath.scheme().isEmpty() ||
+                 m_currentPath.scheme() == QLatin1String("file") ||
+                 m_currentPath.isLocalFile();
+
+  if (isLocal) {
+    QString local = m_currentPath.isLocalFile() ? m_currentPath.toLocalFile()
+                                                : m_currentPath.path();
+    QDir dir(local);
     const QFileInfoList infos = dir.entryInfoList(
         QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
     entries.reserve(infos.size());
@@ -119,7 +64,9 @@ QList<DirectoryEntry> Filter::listDirectoryEntries(const QString &path) const {
     return entries;
   }
 
-  const QUrl url = urlFromPath(path);
+  QUrl url = m_currentPath;
+  if (url.scheme().isEmpty())
+    url = QUrl::fromLocalFile(url.path());
   KIO::ListJob *job = KIO::listDir(url, KIO::HideProgressInfo);
   QEventLoop loop;
 
@@ -132,7 +79,12 @@ QList<DirectoryEntry> Filter::listDirectoryEntries(const QString &path) const {
             continue;
           const mode_t mode = uds.numberValue(KIO::UDSEntry::UDS_FILE_TYPE);
           entry.isDir = S_ISDIR(mode);
-          entry.path = QUrl(childPath(path, name));
+          QString basePath = url.path();
+          if (!basePath.endsWith(QLatin1Char('/')))
+            basePath += QLatin1Char('/');
+          QUrl childUrl(url);
+          childUrl.setPath(basePath + name);
+          entry.path = childUrl;
           entries.append(entry);
         }
       });
@@ -196,56 +148,63 @@ bool Filter::fileHasTags(const QString &filePath) const {
 }
 
 void Filter::setCurrentPath(const QString &path) {
-  m_archive.sourceDir.clear();
-  m_archive.archiveRoot.clear();
-  m_currentPath = path;
+  m_currentPath = QUrl::fromUserInput(path);
   emit changed();
 }
 
-void Filter::navigateDirectory(const QString &directory) {
-  if (directory == "..") {
-    if (!m_archive.archiveRoot.isEmpty() &&
-        m_currentPath == m_archive.archiveRoot) {
-      m_currentPath = m_archive.sourceDir;
-      m_archive.sourceDir.clear();
-      m_archive.archiveRoot.clear();
+void Filter::navigateDirectory(const DirectoryEntry &entry) {
+  if (entry.path.toString() == QLatin1String("..")) {
+    if (m_currentPath.scheme() == QLatin1String("zip")) {
+      QString path = m_currentPath.path();
+      if (path.endsWith(QLatin1Char('/')))
+        path.chop(1);
+      int slash = path.lastIndexOf(QLatin1Char('/'));
+      if (slash >= 0)
+        path = path.left(slash);
+
+      if (QFile::exists(path)) {
+        slash = path.lastIndexOf(QLatin1Char('/'));
+        if (slash >= 0)
+          path = path.left(slash);
+        m_currentPath = QUrl::fromLocalFile(path);
+      } else {
+        m_currentPath.setPath(path);
+      }
       emit changed();
       return;
     }
-    m_currentPath = parentPath(m_currentPath);
+
+    if (m_currentPath.isLocalFile()) {
+      QDir dir(m_currentPath.toLocalFile());
+      dir.cdUp();
+      m_currentPath = QUrl::fromLocalFile(dir.absolutePath());
+    } else {
+      m_currentPath =
+          m_currentPath.adjusted(QUrl::RemoveFilename | QUrl::StripTrailingSlash);
+    }
     emit changed();
     return;
   }
 
   if (m_currentPath.isEmpty()) {
-    m_currentPath = directory;
+    m_currentPath = entry.path;
     emit changed();
     return;
   }
 
-  if (m_archive.archiveRoot.isEmpty()) {
-    QString fullPath = childPath(m_currentPath, directory);
+  if (entry.path.isLocalFile()) {
     DirectoryEntry checkEntry;
-    checkEntry.path = QUrl::fromLocalFile(fullPath);
+    checkEntry.path = entry.path;
     if (checkEntry.isArchivePath()) {
-      m_archive.sourceDir = m_currentPath;
-      QUrl url;
-      url.setScheme(QStringLiteral("zip"));
-      url.setPath(fullPath);
-      m_archive.archiveRoot = url.toString();
-      m_currentPath = m_archive.archiveRoot;
+      QUrl archiveUrl;
+      archiveUrl.setScheme(QStringLiteral("zip"));
+      archiveUrl.setPath(entry.path.toLocalFile());
+      m_currentPath = archiveUrl;
       emit changed();
       return;
     }
-
-    m_currentPath = fullPath;
-    emit changed();
-    return;
   }
 
-  m_currentPath = directory.contains(QLatin1Char('/')) ||
-                          directory.contains(QLatin1String(":"))
-                      ? directory
-                      : childPath(m_currentPath, directory);
+  m_currentPath = entry.path;
   emit changed();
 }

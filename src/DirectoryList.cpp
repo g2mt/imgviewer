@@ -25,9 +25,10 @@ void DirectoryList::populate() {
   QTreeWidgetItem *upItem = new QTreeWidgetItem(this);
   upItem->setIcon(0, QIcon::fromTheme("go-up"));
   upItem->setText(1, "..");
-  upItem->setData(1, Qt::UserRole, "..");
+  upItem->setData(1, Qt::UserRole,
+                  QVariant::fromValue(DirectoryEntry{QUrl(QStringLiteral(".."))}));
 
-  const auto entries = m_filter->listDirectoryEntries(m_filter->currentPath());
+  const auto entries = m_filter->listDirectoryEntries();
   for (const auto &entry : entries) {
     if (entry.isDir || entry.isArchivePath()) {
       QTreeWidgetItem *item = new QTreeWidgetItem(this);
@@ -36,13 +37,14 @@ void DirectoryList::populate() {
                                          "application-x-archive",
                                          QIcon::fromTheme("package-x-generic")));
       item->setText(1, entry.path.fileName());
-      item->setData(1, Qt::UserRole, entry.path.toString());
+      item->setData(1, Qt::UserRole, QVariant::fromValue(entry));
     }
   }
 }
 
 void DirectoryList::onItemActivated(QTreeWidgetItem *item, int column) {
   Q_UNUSED(column);
-  QString path = item->data(1, Qt::UserRole).toString();
-  m_filter->navigateDirectory(path);
+  QVariant data = item->data(1, Qt::UserRole);
+  if (data.canConvert<DirectoryEntry>())
+    m_filter->navigateDirectory(data.value<DirectoryEntry>());
 }

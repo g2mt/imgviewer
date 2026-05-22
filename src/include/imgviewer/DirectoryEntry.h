@@ -1,6 +1,7 @@
 #pragma once
 #include <QByteArray>
 #include <QDateTime>
+#include <QMetaType>
 #include <QUrl>
 
 struct DirectoryEntry {
@@ -13,3 +14,5 @@ struct DirectoryEntry {
   bool isArchivePath() const;
   QByteArray readFileBytes() const;
 };
+
+Q_DECLARE_METATYPE(DirectoryEntry)
