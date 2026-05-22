@@ -7,6 +7,9 @@
 #include <QString>
 
 class Filter;
+namespace KIO {
+class StoredTransferJob;
+}
 
 // Camera describes the affine mapping between image-space pixels and the
 // widget's screen-space pixels. The point `imageTarget` (in image
@@ -32,7 +35,7 @@ class ImageView : public QFrame {
 
 public:
   ImageView(Filter *filter, QWidget *parent = nullptr);
-  void setImage(const QString &path);
+  void setImage(const QUrl &url);
   void setFlipHorizontal(bool flip);
   void setFlipVertical(bool flip);
 
@@ -70,4 +73,5 @@ private:
   bool m_panning = false;
   bool m_flipH = false;
   bool m_flipV = false;
+  KIO::StoredTransferJob *m_currentJob = nullptr;
 };

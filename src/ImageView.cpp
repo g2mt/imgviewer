@@ -1,3 +1,5 @@
+#include <KIO/StoredTransferJob>
+#include <KJob>
 #include <QBuffer>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
@@ -14,8 +16,8 @@
 #include <QVBoxLayout>
 #include <QWheelEvent>
 #include <algorithm>
-#include <imgviewer/ImageView.h>
 #include <imgviewer/Filter.h>
+#include <imgviewer/ImageView.h>
 #include <qevent.h>
 
 namespace {
@@ -40,24 +42,38 @@ ImageView::ImageView(Filter *filter, QWidget *parent)
   grabGesture(Qt::PinchGesture);
 }
 
-void ImageView::setImage(const QString &path) {
+void ImageView::setImage(const QUrl &url) {
   m_originalPixmap = {};
-  DirectoryEntry entry;
-  entry.path = QUrl::fromLocalFile(path);
-  const QByteArray bytes = entry.readFileBytes();
-  if (!bytes.isEmpty()) {
+  m_pixmap = {};
+
+  // Cancel any in-flight KIO request
+  if (m_currentJob) {
+    KIO::StoredTransferJob *oldJob = m_currentJob;
+    m_currentJob = nullptr;
+    oldJob->kill();
+  }
+
+  KIO::StoredTransferJob *job = KIO::storedGet(url, KIO::NoReload);
+  connect(job, &KIO::StoredTransferJob::result, this, [this, job]() {
+    if (m_currentJob != job)
+      return;
+    m_currentJob = nullptr;
+
+    if (job->error())
+      return;
+
+    const QByteArray bytes = job->data();
     QBuffer buffer;
     buffer.setData(bytes);
     buffer.open(QIODevice::ReadOnly);
     QImageReader reader(&buffer);
     reader.setAutoTransform(true);
     m_originalPixmap = QPixmap::fromImage(reader.read());
-  } else {
-    m_originalPixmap = QPixmap(path);
-  }
-  applyFlip();
-  resetCamera();
-  updateImageDisplay();
+    applyFlip();
+    resetCamera();
+    updateImageDisplay();
+  });
+  m_currentJob = job;
 }
 
 void ImageView::applyFlip() {
