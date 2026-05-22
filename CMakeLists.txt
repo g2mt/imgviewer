@@ -15,6 +15,7 @@ add_executable(imgviewer
     src/main.cpp 
     src/MainWindow.cpp 
     src/Filter.cpp 
+    src/DirectoryEntry.cpp
     src/ImageView.cpp 
     src/DirectoryList.cpp 
     src/TagList.cpp 
@@ -24,6 +25,7 @@ add_executable(imgviewer
 
     ### Contains Q_OBJECT macros, needed for automoc
     src/include/imgviewer/DirectoryList.h
+    src/include/imgviewer/DirectoryEntry.h
     src/include/imgviewer/Filter.h
     src/include/imgviewer/ImageView.h
     src/include/imgviewer/ImageDetailList.h

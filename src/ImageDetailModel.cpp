@@ -15,15 +15,16 @@ constexpr int kRemoteThumbnailSize = ImageDetailModel::kThumbnailSize;
 
 class ThumbnailLoader : public QRunnable {
 public:
-  ThumbnailLoader(ImageDetailModel *model, Filter *filter, const QString &path,
+  ThumbnailLoader(ImageDetailModel *model, const DirectoryEntry &entry,
                   int size)
-      : m_model(model), m_filter(filter), m_path(path), m_size(size) {
+      : m_model(model), m_entry(entry), m_path(entry.path.toString()),
+        m_size(size) {
     setAutoDelete(true);
   }
 
   void run() override {
     QImage image;
-    const QByteArray bytes = m_filter->readFileBytes(m_path);
+    const QByteArray bytes = m_entry.readFileBytes();
     if (!bytes.isEmpty()) {
       QBuffer buffer;
       buffer.setData(bytes);
@@ -46,7 +47,7 @@ public:
 
 private:
   QPointer<ImageDetailModel> m_model;
-  Filter *m_filter;
+  DirectoryEntry m_entry;
   QString m_path;
   int m_size;
 };
@@ -73,15 +74,15 @@ QVariant ImageDetailModel::data(const QModelIndex &index, int role) const {
   switch (role) {
   case Qt::DisplayRole:
   case FileNameRole:
-    return entry.name;
+    return entry.path.fileName();
   case FilePathRole:
-    return entry.path;
+    return entry.path.toString();
   case ThumbnailRole: {
-    const QString path = entry.path;
+    const QString path = entry.path.toString();
     auto it = m_thumbnails.constFind(path);
     if (it != m_thumbnails.constEnd())
       return *it;
-    requestThumbnail(path);
+    requestThumbnail(entry);
     return {};
   }
   default:
@@ -101,11 +102,11 @@ void ImageDetailModel::reload() {
   entries.removeIf([&](const DirectoryEntry &entry) {
     if (entry.isDir)
       return true;
-    if (!m_filter->isImagePath(entry.path))
+    if (!entry.isImagePath())
       return true;
-    if (!search.isEmpty() && !entry.name.contains(search, Qt::CaseInsensitive))
+    if (!search.isEmpty() && !entry.path.fileName().contains(search, Qt::CaseInsensitive))
       return true;
-    if (!tags.isEmpty() && !m_filter->fileHasTags(entry.path))
+    if (!tags.isEmpty() && !m_filter->fileHasTags(entry.path.toString()))
       return true;
     return false;
   });
@@ -121,7 +122,7 @@ void ImageDetailModel::reload() {
               bool less = false;
               switch (sortBy) {
               case SortBy::Name:
-                less = collator.compare(a.name, b.name) < 0;
+                less = collator.compare(a.path.fileName(), b.path.fileName()) < 0;
                 break;
               case SortBy::DateCreated:
                 less = a.birthTime < b.birthTime;
@@ -137,12 +138,13 @@ void ImageDetailModel::reload() {
   endResetModel();
 }
 
-void ImageDetailModel::requestThumbnail(const QString &path) const {
+void ImageDetailModel::requestThumbnail(const DirectoryEntry &entry) const {
+  const QString path = entry.path.toString();
   if (m_pending.contains(path))
     return;
   m_pending.insert(path);
   auto *loader = new ThumbnailLoader(const_cast<ImageDetailModel *>(this),
-                                     m_filter, path, kRemoteThumbnailSize);
+                                     entry, kRemoteThumbnailSize);
   QThreadPool::globalInstance()->start(loader);
 }
 
@@ -154,7 +156,7 @@ void ImageDetailModel::onThumbnailReady(const QString &path,
   m_thumbnails.insert(path, QPixmap::fromImage(image));
 
   for (int i = 0; i < m_files.size(); ++i) {
-    if (m_files[i].path == path) {
+    if (m_files[i].path.toString() == path) {
       const QModelIndex idx = index(i);
       emit dataChanged(idx, idx, {ThumbnailRole, Qt::DecorationRole});
       break;

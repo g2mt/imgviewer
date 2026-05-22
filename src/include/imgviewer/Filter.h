@@ -1,19 +1,11 @@
 #pragma once
-#include <QByteArray>
-#include <QDateTime>
 #include <QList>
 #include <QMap>
 #include <QObject>
 #include <QString>
 #include <QStringList>
 
-struct DirectoryEntry {
-  QString name;
-  QString path;
-  bool isDir = false;
-  QDateTime birthTime;
-  QDateTime lastModified;
-};
+#include <imgviewer/DirectoryEntry.h>
 
 enum class SortBy { Name, DateCreated, DateModified };
 
@@ -73,10 +65,7 @@ public:
   const QMap<QString, QStringList> &tagMap() const { return m_tagMap; }
   void loadTagsFile(const QString &tagsPath, const QString &pathReplace);
   bool fileHasTags(const QString &filePath) const;
-  bool isImagePath(const QString &path) const;
-  bool isArchivePath(const QString &path) const;
   QList<DirectoryEntry> listDirectoryEntries(const QString &path) const;
-  QByteArray readFileBytes(const QString &path) const;
 
 private:
   QString resolvePath(const QString &path) const;

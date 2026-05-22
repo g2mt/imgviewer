@@ -67,28 +67,6 @@ QString Filter::resolvePath(const QString &path) const {
   return path;
 }
 
-bool Filter::isImagePath(const QString &path) const {
-  const QString resolved = resolvePath(path);
-  if (resolved.isEmpty())
-    return false;
-  const QString ext = QFileInfo(resolved).suffix().toLower();
-  return ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" ||
-         ext == "gif" || ext == "pbm" || ext == "pgm" || ext == "ppm" ||
-         ext == "xbm" || ext == "xpm" || ext == "svg" || ext == "webp" ||
-         ext == "tiff" || ext == "tif" || ext == "ico";
-}
-
-bool Filter::isArchivePath(const QString &path) const {
-  const QString resolved = resolvePath(path);
-  if (resolved.isEmpty())
-    return false;
-  const QString ext = QFileInfo(resolved).suffix().toLower();
-  return ext == "zip" || ext == "tar" || ext == "tgz" || ext == "tbz2" ||
-         ext == "txz" || ext == "7z" || ext == "rar" || ext == "gz" ||
-         ext == "bz2" || ext == "xz" || ext == "lz" || ext == "lzma" ||
-         ext == "zst" || ext == "iso" || ext == "cpio" || ext == "ar";
-}
-
 QString Filter::childPath(const QString &basePath,
                           const QString &childName) const {
   if (isLocalPath(basePath))
@@ -130,10 +108,9 @@ QList<DirectoryEntry> Filter::listDirectoryEntries(const QString &path) const {
     entries.reserve(infos.size());
     for (const QFileInfo &info : infos) {
       DirectoryEntry entry;
-      entry.name = info.fileName();
-      if (entry.name == "." || entry.name == "..")
+      if (info.fileName() == "." || info.fileName() == "..")
         continue;
-      entry.path = info.absoluteFilePath();
+      entry.path = QUrl::fromLocalFile(info.absoluteFilePath());
       entry.isDir = info.isDir();
       entry.birthTime = info.birthTime();
       entry.lastModified = info.lastModified();
@@ -150,12 +127,12 @@ QList<DirectoryEntry> Filter::listDirectoryEntries(const QString &path) const {
       job, &KIO::ListJob::entries, &loop, [&](auto, const auto &list) {
         for (const auto &uds : list) {
           DirectoryEntry entry;
-          entry.name = uds.stringValue(KIO::UDSEntry::UDS_NAME);
-          if (entry.name.isEmpty())
+          const QString name = uds.stringValue(KIO::UDSEntry::UDS_NAME);
+          if (name.isEmpty())
             continue;
           const mode_t mode = uds.numberValue(KIO::UDSEntry::UDS_FILE_TYPE);
           entry.isDir = S_ISDIR(mode);
-          entry.path = childPath(path, entry.name);
+          entry.path = QUrl(childPath(path, name));
           entries.append(entry);
         }
       });
@@ -163,28 +140,6 @@ QList<DirectoryEntry> Filter::listDirectoryEntries(const QString &path) const {
                    [&loop](auto...) { loop.quit(); });
   loop.exec();
   return entries;
-}
-
-QByteArray Filter::readFileBytes(const QString &path) const {
-  const QString resolved = resolvePath(path);
-  if (resolved.isEmpty())
-    return {};
-  if (isLocalPath(resolved)) {
-    QFile file(localPath(resolved));
-    if (!file.open(QIODevice::ReadOnly))
-      return {};
-    return file.readAll();
-  }
-
-  KIO::StoredTransferJob *job =
-      KIO::storedGet(urlFromPath(resolved), KIO::NoReload);
-  QEventLoop loop;
-  QObject::connect(job, &KIO::StoredTransferJob::result, &loop,
-                   [&loop](auto...) { loop.quit(); });
-  loop.exec();
-  if (job->error())
-    return {};
-  return job->data();
 }
 
 void Filter::loadTagsFile(const QString &tagsPath, const QString &pathReplace) {
@@ -269,12 +224,10 @@ void Filter::navigateDirectory(const QString &directory) {
   }
 
   if (m_archive.archiveRoot.isEmpty()) {
-    const QString fullPath = directory.contains(QLatin1Char('/')) ||
-                                     directory.contains(QLatin1String(":"))
-                                 ? directory
-                                 : childPath(m_currentPath, directory);
-    const QFileInfo info(fullPath);
-    if (info.isFile() && isArchivePath(fullPath)) {
+    QString fullPath = childPath(m_currentPath, directory);
+    DirectoryEntry checkEntry;
+    checkEntry.path = QUrl::fromLocalFile(fullPath);
+    if (checkEntry.isArchivePath()) {
       m_archive.sourceDir = m_currentPath;
       QUrl url;
       url.setScheme(QStringLiteral("zip"));

@@ -37,7 +37,7 @@ private slots:
   void onThumbnailReady(const QString &path, const QImage &image);
 
 private:
-  void requestThumbnail(const QString &path) const;
+  void requestThumbnail(const DirectoryEntry &entry) const;
 
   Filter *m_filter;
   QList<DirectoryEntry> m_files;

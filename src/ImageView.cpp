@@ -42,7 +42,9 @@ ImageView::ImageView(Filter *filter, QWidget *parent)
 
 void ImageView::setImage(const QString &path) {
   m_originalPixmap = {};
-  const QByteArray bytes = m_filter->readFileBytes(path);
+  DirectoryEntry entry;
+  entry.path = QUrl::fromLocalFile(path);
+  const QByteArray bytes = entry.readFileBytes();
   if (!bytes.isEmpty()) {
     QBuffer buffer;
     buffer.setData(bytes);
@@ -154,7 +156,9 @@ void ImageView::dragEnterEvent(QDragEnterEvent *event) {
     for (const QUrl &url : event->mimeData()->urls()) {
       if (url.isLocalFile()) {
         QString path = url.toLocalFile();
-        if (m_filter->isImagePath(path)) {
+        DirectoryEntry entry;
+        entry.path = QUrl::fromLocalFile(path);
+        if (entry.isImagePath()) {
           event->acceptProposedAction();
           return;
         }

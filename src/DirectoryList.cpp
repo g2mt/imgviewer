@@ -29,14 +29,14 @@ void DirectoryList::populate() {
 
   const auto entries = m_filter->listDirectoryEntries(m_filter->currentPath());
   for (const auto &entry : entries) {
-    if (entry.isDir || m_filter->isArchivePath(entry.name)) {
+    if (entry.isDir || entry.isArchivePath()) {
       QTreeWidgetItem *item = new QTreeWidgetItem(this);
       item->setIcon(0, entry.isDir ? QIcon::fromTheme("folder")
                                    : QIcon::fromTheme(
                                          "application-x-archive",
                                          QIcon::fromTheme("package-x-generic")));
-      item->setText(1, entry.name);
-      item->setData(1, Qt::UserRole, entry.path);
+      item->setText(1, entry.path.fileName());
+      item->setData(1, Qt::UserRole, entry.path.toString());
     }
   }
 }
