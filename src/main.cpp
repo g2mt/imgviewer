@@ -5,8 +5,8 @@
 int main(int argc, char *argv[]) {
   QApplication app(argc, argv);
   app.setDesktopFileName("imgviewer");
-  QCoreApplication::setOrganizationName("QtImgViewer");
-  QCoreApplication::setApplicationName("ImageViewer");
+  app.setOrganizationName("QtImgViewer");
+  app.setApplicationName("ImageViewer");
   MainWindow win;
   win.resize(1000, 700);
   win.show();
