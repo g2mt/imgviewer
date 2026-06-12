@@ -9,6 +9,7 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(USE_LIBARCHIVE "Use libarchive for archive support (fallback to KIO zip://)" OFF)
+option(USE_KIO "Use KIO for archive support" OFF)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
@@ -41,7 +42,7 @@ if(USE_LIBARCHIVE)
   find_package(LibArchive REQUIRED)
   target_compile_definitions(imgviewer PRIVATE USE_LIBARCHIVE)
   target_link_libraries(imgviewer PRIVATE Qt6::Widgets LibArchive::LibArchive)
-else()
+elseif(USE_KIO)
   find_package(KF6KIO REQUIRED CONFIG)
   target_compile_definitions(imgviewer PRIVATE USE_KIO)
   target_link_libraries(imgviewer PRIVATE Qt6::Widgets KF6::KIOCore)

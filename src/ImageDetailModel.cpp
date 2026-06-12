@@ -103,7 +103,7 @@ void ImageDetailModel::requestThumbnail(const DirectoryEntry &entry) const {
 
   auto *self = const_cast<ImageDetailModel *>(this);
 
-#ifdef USE_LIBARCHIVE
+#if defined(USE_LIBARCHIVE)
   QImage image;
   if (entry.path.isLocalFile()) {
     QImageReader reader(entry.path.toLocalFile());

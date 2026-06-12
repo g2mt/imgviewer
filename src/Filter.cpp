@@ -178,10 +178,7 @@ QList<DirectoryEntry> Filter::listDirectoryEntries() const {
   }
 
 #ifdef USE_KIO
-  QUrl url = m_currentUrl;
-  if (url.scheme().isEmpty())
-    url = QUrl::fromLocalFile(url.path());
-  KIO::ListJob *job = KIO::listDir(url, KIO::HideProgressInfo);
+  KIO::ListJob *job = KIO::listDir(m_currentUrl, KIO::HideProgressInfo);
   QEventLoop loop;
 
   QObject::connect(
@@ -193,12 +190,8 @@ QList<DirectoryEntry> Filter::listDirectoryEntries() const {
             continue;
           const mode_t mode = uds.numberValue(KIO::UDSEntry::UDS_FILE_TYPE);
           entry.isDir = S_ISDIR(mode);
-          QString basePath = url.path();
-          if (!basePath.endsWith(QLatin1Char('/')))
-            basePath += QLatin1Char('/');
-          QUrl childUrl(url);
-          childUrl.setPath(basePath + name);
-          entry.path = childUrl;
+          QUrl entryUrl = m_currentUrl.resolved(name);
+          entry.path = entryUrl;
           entries.append(entry);
         }
       });
@@ -217,7 +210,7 @@ void Filter::setCurrentPath(const QString &path) {
 void Filter::navigateDirectory(const DirectoryEntry &entry) {
   // Handle ".." — navigate to parent directory
   if (entry.path.toString() == QLatin1String("..")) {
-#ifdef USE_LIBARCHIVE
+#if defined(USE_LIBARCHIVE)
     if (m_archiveTemp) {
       QDir dir(m_currentUrl.toLocalFile());
       if (dir.cdUp()) {
@@ -237,13 +230,13 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
       emit changed();
       return;
     }
-#else
+#elif defined(USE_KIO)
     // Inside a zip archive: walk up the virtual path, fall back to local file
     // system
     if (m_currentUrl.scheme() == QLatin1String("zip")) {
-      QUrl url = m_currentUrl.adjusted(QUrl::RemoveFilename);
-      m_currentUrl = url;
-      if (QFile::exists(url.path()))
+      m_currentUrl = m_currentUrl.adjusted(QUrl::StripTrailingSlash);
+      m_currentUrl = m_currentUrl.adjusted(QUrl::RemoveFilename);
+      if (QFile::exists(m_currentUrl.path()))
         m_currentUrl.setScheme("file");
       emit changed();
       return;
@@ -257,8 +250,8 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
       m_currentUrl = QUrl::fromLocalFile(dir.absolutePath());
     } else {
       // Remote URL: strip the last path segment
-      m_currentUrl = m_currentUrl.adjusted(QUrl::RemoveFilename |
-                                           QUrl::StripTrailingSlash);
+      m_currentUrl = m_currentUrl.adjusted(QUrl::StripTrailingSlash);
+      m_currentUrl = m_currentUrl.adjusted(QUrl::RemoveFilename);
     }
     emit changed();
     return;
@@ -271,7 +264,7 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
     return;
   }
 
-#ifdef USE_LIBARCHIVE
+#if defined(USE_LIBARCHIVE)
   // Local entry that looks like an archive — extract it to a temp directory
   if (entry.isArchivePath()) {
     auto temp = std::make_unique<ArchiveTemp>();
@@ -287,12 +280,14 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
       m_archiveTemp.reset();
     }
   }
-#else
+#elif defined(USE_KIO)
   // Local entry that looks like an archive — navigate into it via zip:// scheme
   if (entry.isArchivePath()) {
-    QUrl archiveUrl;
+    QUrl archiveUrl(entry.path);
     archiveUrl.setScheme(QStringLiteral("zip"));
-    archiveUrl.setPath(entry.path.toLocalFile());
+    if (!archiveUrl.path().endsWith("/")) {
+      archiveUrl.setPath(archiveUrl.path() + "/");
+    }
     m_currentUrl = archiveUrl;
     emit changed();
     return;
