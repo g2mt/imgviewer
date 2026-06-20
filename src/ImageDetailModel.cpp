@@ -31,14 +31,14 @@ QVariant ImageDetailModel::data(const QModelIndex &index, int role) const {
   case FileNameRole:
     return entry.name();
   case FilePathRole: {
-    if (auto *ve = std::get_if<VirtualDirectoryEntry>(&entry.path))
+    if (auto *ve = std::get_if<VirtualDirectoryEntry>(&entry.data))
       return ve->image;
-    return std::get<QUrl>(entry.path).toString();
+    return std::get<QUrl>(entry.data).toString();
   }
   case ThumbnailRole: {
-    if (auto *ve = std::get_if<VirtualDirectoryEntry>(&entry.path))
+    if (auto *ve = std::get_if<VirtualDirectoryEntry>(&entry.data))
       return QPixmap::fromImage(ve->image);
-    const QString key = std::get<QUrl>(entry.path).toString();
+    const QString key = std::get<QUrl>(entry.data).toString();
     auto it = m_thumbnails.constFind(key);
     if (it != m_thumbnails.constEnd())
       return *it;
@@ -60,7 +60,7 @@ void ImageDetailModel::reload() {
   const QString search = m_filter->search();
   const QList<QString> tags = m_filter->tags();
   entries.removeIf([&](const DirectoryEntry &entry) {
-    if (std::holds_alternative<VirtualDirectoryEntry>(entry.path))
+    if (std::holds_alternative<VirtualDirectoryEntry>(entry.data))
       return false;
     if (entry.isDir)
       return true;
@@ -70,7 +70,7 @@ void ImageDetailModel::reload() {
         !entry.name().contains(search, Qt::CaseInsensitive))
       return true;
     if (!tags.isEmpty() &&
-        !m_filter->fileHasTags(std::get<QUrl>(entry.path).toString()))
+        !m_filter->fileHasTags(std::get<QUrl>(entry.data).toString()))
       return true;
     return false;
   });
@@ -103,7 +103,7 @@ void ImageDetailModel::reload() {
 }
 
 void ImageDetailModel::requestThumbnail(const DirectoryEntry &entry) const {
-  const QString path = std::get<QUrl>(entry.path).toString();
+  const QString path = std::get<QUrl>(entry.data).toString();
   if (m_pending.contains(path))
     return;
   m_pending.insert(path);
@@ -112,7 +112,7 @@ void ImageDetailModel::requestThumbnail(const DirectoryEntry &entry) const {
 
 #if defined(USE_LIBARCHIVE)
   QImage image;
-  if (auto *url = std::get_if<QUrl>(&entry.path)) {
+  if (auto *url = std::get_if<QUrl>(&entry.data)) {
     if (url->isLocalFile()) {
       QImageReader reader(url->toLocalFile());
       reader.setAutoTransform(true);
@@ -159,7 +159,7 @@ void ImageDetailModel::onThumbnailReady(const QString &path,
   m_thumbnails.insert(path, QPixmap::fromImage(image));
 
   for (int i = 0; i < m_files.size(); ++i) {
-    if (std::get<QUrl>(m_files[i].path).toString() == path) {
+    if (std::get<QUrl>(m_files[i].data).toString() == path) {
       const QModelIndex idx = index(i);
       emit dataChanged(idx, idx, {ThumbnailRole, Qt::DecorationRole});
       break;

@@ -206,7 +206,7 @@ void ImageView::dragEnterEvent(QDragEnterEvent *event) {
       if (url.isLocalFile()) {
         QString path = url.toLocalFile();
         DirectoryEntry entry;
-        entry.path = QUrl::fromLocalFile(path);
+        entry.data = QUrl::fromLocalFile(path);
         if (entry.isImagePath()) {
           event->acceptProposedAction();
           return;

@@ -41,7 +41,7 @@ void DirectoryList::populate() {
                  ? QIcon::fromTheme("folder")
                  : QIcon::fromTheme("application-x-archive",
                                     QIcon::fromTheme("package-x-generic")));
-      item->setText(1, entry.pathFileName());
+      item->setText(1, entry.name());
       item->setData(1, Qt::UserRole, QVariant::fromValue(entry));
     }
   }

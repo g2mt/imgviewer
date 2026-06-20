@@ -11,7 +11,7 @@ struct VirtualDirectoryEntry {
 };
 
 struct DirectoryEntry {
-  std::variant<QUrl, VirtualDirectoryEntry> path;
+  std::variant<QUrl, VirtualDirectoryEntry> data;
   bool isDir = false;
   QDateTime birthTime;
   QDateTime lastModified;
@@ -20,10 +20,10 @@ struct DirectoryEntry {
   bool isArchivePath() const;
 
   QString name() const {
-    if (auto *url = std::get_if<QUrl>(&path))
+    if (auto *url = std::get_if<QUrl>(&data))
       return url->fileName();
     return QStringLiteral("Page %1").arg(
-        std::get<VirtualDirectoryEntry>(path).index + 1, 2, 10,
+        std::get<VirtualDirectoryEntry>(data).index + 1, 2, 10,
         QLatin1Char('0'));
   }
 };

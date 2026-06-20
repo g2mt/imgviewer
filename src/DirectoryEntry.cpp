@@ -3,10 +3,10 @@
 #include <QFileInfo>
 
 bool DirectoryEntry::isImagePath() const {
-  if (std::holds_alternative<VirtualDirectoryEntry>(path))
+  if (std::holds_alternative<VirtualDirectoryEntry>(data))
     return true;
   const QString ext =
-      QFileInfo(std::get<QUrl>(path).fileName()).suffix().toLower();
+      QFileInfo(std::get<QUrl>(data).fileName()).suffix().toLower();
   return ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" ||
          ext == "gif" || ext == "pbm" || ext == "pgm" || ext == "ppm" ||
          ext == "xbm" || ext == "xpm" || ext == "svg" || ext == "webp" ||
@@ -14,10 +14,10 @@ bool DirectoryEntry::isImagePath() const {
 }
 
 bool DirectoryEntry::isArchivePath() const {
-  if (std::holds_alternative<VirtualDirectoryEntry>(path))
+  if (std::holds_alternative<VirtualDirectoryEntry>(data))
     return false;
   const QString ext =
-      QFileInfo(std::get<QUrl>(path).fileName()).suffix().toLower();
+      QFileInfo(std::get<QUrl>(data).fileName()).suffix().toLower();
 #ifdef USE_QT_PDF
   if (ext == "pdf")
     return true;

@@ -17,14 +17,6 @@
 #include <KIO/StoredTransferJob>
 #endif
 
-#ifdef USE_QT_PDF
-#include <QPdfDocumentRenderOptions>
-
-namespace {
-constexpr int kPdfThumbnailSize = 192;
-}
-#endif
-
 namespace {
 
 QStringList parseCsvLine(const QString &line) {
@@ -185,7 +177,7 @@ QList<DirectoryEntry> Filter::listDirectoryEntries() {
       if (info.fileName() == "." || info.fileName() == "..")
         continue;
       DirectoryEntry entry;
-      entry.path = QUrl::fromLocalFile(info.absoluteFilePath());
+      entry.data = QUrl::fromLocalFile(info.absoluteFilePath());
       entry.isDir = info.isDir();
       entry.birthTime = info.birthTime();
       entry.lastModified = info.lastModified();
@@ -231,7 +223,7 @@ void Filter::setCurrentPath(const QString &path) {
 
 void Filter::navigateDirectory(const DirectoryEntry &entry) {
   // Handle ".." — navigate to parent directory
-  if (std::get<QUrl>(entry.path).toString() == QLatin1String("..")) {
+  if (std::get<QUrl>(entry.data).toString() == QLatin1String("..")) {
 #if defined(USE_LIBARCHIVE)
     if (m_archiveTemp) {
       QUrl parentUrl = m_currentUrl.resolved(QUrl(".."));
@@ -277,13 +269,13 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
 
   // First navigation: current path is empty, accept the entry as-is
   if (m_currentUrl.isEmpty()) {
-    m_currentUrl = std::get<QUrl>(entry.path);
+    m_currentUrl = std::get<QUrl>(entry.data);
     emit changed();
     return;
   }
 
 #ifdef USE_QT_PDF
-  if (auto *url = std::get_if<QUrl>(&entry.path)) {
+  if (auto *url = std::get_if<QUrl>(&entry.data)) {
     if (url->fileName().endsWith(QLatin1String(".pdf"), Qt::CaseInsensitive) &&
         url->isLocalFile()) {
       m_currentUrl = *url;
@@ -300,7 +292,7 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
     if (temp->dir.isValid()) {
       temp->parentUrl = m_currentUrl;
       m_archiveTemp = std::move(temp);
-      if (extractArchive(std::get<QUrl>(entry.path).toLocalFile())) {
+      if (extractArchive(std::get<QUrl>(entry.data).toLocalFile())) {
         m_currentUrl = QUrl::fromLocalFile(m_archiveTemp->dir.path());
         emit changed();
         return;
@@ -324,7 +316,7 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
 #endif
 
   // Normal directory navigation: switch to the entry's path
-  m_currentUrl = std::get<QUrl>(entry.path);
+  m_currentUrl = std::get<QUrl>(entry.data);
   emit changed();
 }
 
@@ -349,14 +341,9 @@ QList<DirectoryEntry> Filter::listPdfEntries() {
   int pageCount = m_pdfDocument->pageCount();
   entries.reserve(pageCount);
 
-  QPdfDocumentRenderOptions opts;
   for (int i = 0; i < pageCount; ++i) {
-    QImage image =
-        m_pdfDocument->render(i, QSize(kPdfThumbnailSize, kPdfThumbnailSize),
-                              opts);
-
     DirectoryEntry entry;
-    entry.path = VirtualDirectoryEntry{i, image};
+    entry.data = VirtualDirectoryEntry{i, renderPdfPage(i)};
     entries.append(entry);
   }
 
@@ -364,11 +351,10 @@ QList<DirectoryEntry> Filter::listPdfEntries() {
 }
 
 QImage Filter::renderPdfPage(int page) {
-  if (!m_pdfDocument ||
-      m_pdfDocument->status() != QPdfDocument::Status::Ready)
+  if (!m_pdfDocument || m_pdfDocument->status() != QPdfDocument::Status::Ready)
     return {};
   QSizeF pageSize = m_pdfDocument->pagePointSize(page);
-  QSize imageSize = (pageSize * 2.0).toSize();
+  QSize imageSize = (pageSize * 1.0).toSize();
   if (imageSize.isEmpty())
     imageSize = QSize(1224, 1584);
   QPdfDocumentRenderOptions opts;
