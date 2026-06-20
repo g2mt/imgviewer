@@ -212,17 +212,13 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
   if (entry.path.toString() == QLatin1String("..")) {
 #if defined(USE_LIBARCHIVE)
     if (m_archiveTemp) {
-      QDir dir(m_currentUrl.toLocalFile());
-      if (dir.cdUp()) {
-        const QString parent = dir.absolutePath();
-        const QString tempRoot = m_archiveTemp->dir.path();
-        if (parent.startsWith(tempRoot) &&
-            parent.length() > tempRoot.length()) {
-          // Still inside the archive
-          m_currentUrl = QUrl::fromLocalFile(parent);
-          emit changed();
-          return;
-        }
+      QUrl parentUrl = m_currentUrl.resolved(QUrl(".."));
+      if (QUrl::fromLocalFile(m_archiveTemp->dir.path())
+              .isParentOf(parentUrl)) {
+        // Still inside the archive
+        m_currentUrl = parentUrl;
+        emit changed();
+        return;
       }
       // Leaving the archive entirely
       m_currentUrl = m_archiveTemp->parentUrl;
