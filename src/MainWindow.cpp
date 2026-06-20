@@ -8,7 +8,7 @@
 #include <QTabWidget>
 #include <QTimer>
 #include <QToolButton>
-#include <imgviewer/DirectoryList.h>
+#include <imgviewer/DirectoryListContainer.h>
 #include <imgviewer/ImageDetailList.h>
 #include <imgviewer/ImageView.h>
 #include <imgviewer/MainWindow.h>
@@ -180,7 +180,8 @@ void MainWindow::setupRightSplitter(QSplitter *horizontalSplitter) {
   m_rightSplitter = new QSplitter(Qt::Vertical);
 
   QTabWidget *tabs = new QTabWidget();
-  DirectoryList *dirList = new DirectoryList(&filter);
+
+  DirectoryListContainer *dirList = new DirectoryListContainer(&filter);
   tabs->addTab(dirList, "Directory");
   TagListContainer *tagList = new TagListContainer(&filter);
   tabs->addTab(tagList, "Tags");
