@@ -1,3 +1,4 @@
+#include <QActionGroup>
 #include <QApplication>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -46,29 +47,41 @@ MainWindow::MainWindow() {
 }
 
 void MainWindow::setupFilterMenu(QMenu *filterMenu) {
-  QAction *nameAct = filterMenu->addAction("Name");
-  nameAct->setCheckable(true);
-  nameAct->setChecked(true);
-  QAction *dateCreatedAct = filterMenu->addAction("Date Created");
-  dateCreatedAct->setCheckable(true);
-  QAction *dateModifiedAct = filterMenu->addAction("Date Modified");
-  dateModifiedAct->setCheckable(true);
+  QActionGroup *sortGroup = new QActionGroup(this);
+  sortGroup->setExclusive(true);
+
+  auto makeSortAction = [&](const QString &text, SortBy sortBy, bool checked = false) {
+    QAction *act = filterMenu->addAction(text);
+    act->setCheckable(true);
+    act->setChecked(checked);
+    act->setData(static_cast<int>(sortBy));
+    sortGroup->addAction(act);
+    return act;
+  };
+  makeSortAction("Name", SortBy::Name, true);
+  makeSortAction("Date Created", SortBy::DateCreated);
+  makeSortAction("Date Modified", SortBy::DateModified);
+
   filterMenu->addSeparator();
   QAction *descAction = filterMenu->addAction("Descending");
   descAction->setCheckable(true);
   QAction *natAction = filterMenu->addAction("Natural Sort");
   natAction->setCheckable(true);
 
-  connect(nameAct, &QAction::triggered,
-          [this]() { filter.setSortBy(SortBy::Name); });
-  connect(dateCreatedAct, &QAction::triggered,
-          [this]() { filter.setSortBy(SortBy::DateCreated); });
-  connect(dateModifiedAct, &QAction::triggered,
-          [this]() { filter.setSortBy(SortBy::DateModified); });
-  connect(descAction, &QAction::toggled,
-          [this](bool checked) { filter.setDescending(checked); });
-  connect(natAction, &QAction::toggled,
-          [this](bool checked) { filter.setNaturalSort(checked); });
+  auto applySort = [this, descAction, natAction]() {
+    filter.setDescending(descAction->isChecked());
+    filter.setNaturalSort(natAction->isChecked());
+  };
+
+  connect(sortGroup, &QActionGroup::triggered, this,
+          [this, applySort](QAction *action) {
+            filter.setSortBy(static_cast<SortBy>(action->data().toInt()));
+            applySort();
+          });
+  connect(descAction, &QAction::toggled, this,
+          [applySort](bool) { applySort(); });
+  connect(natAction, &QAction::toggled, this,
+          [applySort](bool) { applySort(); });
 }
 
 void MainWindow::setupToolbar(QToolBar *toolbar) {
