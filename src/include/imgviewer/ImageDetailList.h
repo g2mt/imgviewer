@@ -1,6 +1,6 @@
 #pragma once
 #include <QListView>
-#include <QString>
+#include <QVariant>
 
 class Filter;
 class ImageDetailModel;
@@ -19,7 +19,7 @@ public slots:
 signals:
   // Emitted when the user activates an item (single click). Carries the
   // absolute path of the selected image file.
-  void imageActivated(const QString &path);
+  void imageActivated(const QVariant &data);
 
 private slots:
   void onClicked(const QModelIndex &index);

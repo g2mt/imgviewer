@@ -101,6 +101,14 @@ void ImageView::setImage(const QUrl &url) {
 #endif
 }
 
+void ImageView::setImage(const QImage &image) {
+  m_originalPixmap = QPixmap::fromImage(image);
+  m_pixmap = {};
+  applyFlip();
+  resetCamera();
+  updateImageDisplay();
+}
+
 void ImageView::applyFlip() {
   QTransform t;
   if (m_flipH)

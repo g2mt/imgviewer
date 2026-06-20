@@ -10,6 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(USE_LIBARCHIVE "Use libarchive for archive support (fallback to KIO zip://)" OFF)
 option(USE_KIO "Use KIO for archive support" OFF)
+option(USE_QT_PDF "Use Qt6 Pdf for PDF document support" OFF)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
@@ -48,6 +49,12 @@ elseif(USE_KIO)
   find_package(KF6KIO REQUIRED CONFIG)
   target_compile_definitions(imgviewer PRIVATE USE_KIO)
   target_link_libraries(imgviewer PRIVATE Qt6::Widgets KF6::KIOCore)
+endif()
+
+if(USE_QT_PDF)
+  find_package(Qt6 REQUIRED COMPONENTS Pdf)
+  target_compile_definitions(imgviewer PRIVATE USE_QT_PDF)
+  target_link_libraries(imgviewer PRIVATE Qt6::Pdf)
 endif()
 
 include(GNUInstallDirs)

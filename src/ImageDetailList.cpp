@@ -78,9 +78,9 @@ ImageDetailList::ImageDetailList(Filter *filter, QWidget *parent)
 }
 
 void ImageDetailList::onClicked(const QModelIndex &index) {
-  const QString path = index.data(ImageDetailModel::FilePathRole).toString();
-  if (!path.isEmpty())
-    emit imageActivated(path);
+  QVariant data = index.data(ImageDetailModel::FilePathRole);
+  if (data.isValid())
+    emit imageActivated(data);
 }
 
 void ImageDetailList::forward() {
@@ -89,9 +89,9 @@ void ImageDetailList::forward() {
   if (row < m_model->rowCount() - 1) {
     const QModelIndex next = m_model->index(row + 1, 0);
     setCurrentIndex(next);
-    const QString path = next.data(ImageDetailModel::FilePathRole).toString();
-    if (!path.isEmpty())
-      emit imageActivated(path);
+    QVariant data = next.data(ImageDetailModel::FilePathRole);
+    if (data.isValid())
+      emit imageActivated(data);
   }
 }
 
@@ -101,8 +101,8 @@ void ImageDetailList::backward() {
   if (row > 0) {
     const QModelIndex prev = m_model->index(row - 1, 0);
     setCurrentIndex(prev);
-    const QString path = prev.data(ImageDetailModel::FilePathRole).toString();
-    if (!path.isEmpty())
-      emit imageActivated(path);
+    QVariant data = prev.data(ImageDetailModel::FilePathRole);
+    if (data.isValid())
+      emit imageActivated(data);
   }
 }

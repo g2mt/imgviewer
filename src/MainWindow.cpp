@@ -1,6 +1,7 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QHBoxLayout>
+#include <QImage>
 #include <QLabel>
 #include <QLineEdit>
 #include <QSettings>
@@ -191,7 +192,12 @@ void MainWindow::setupRightSplitter(QSplitter *horizontalSplitter) {
   m_imageList = imageList;
   m_rightSplitter->addWidget(imageList);
   connect(imageList, &ImageDetailList::imageActivated, m_imageView,
-          &ImageView::setImage);
+          [this](const QVariant &data) {
+            if (data.canConvert<QImage>())
+              m_imageView->setImage(data.value<QImage>());
+            else
+              m_imageView->setImage(QUrl(data.toString()));
+          });
   connect(m_imageView, &ImageView::goForward, imageList,
           &ImageDetailList::forward);
   connect(m_imageView, &ImageView::goBackward, imageList,

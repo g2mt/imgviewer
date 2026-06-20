@@ -39,6 +39,7 @@ class ImageView : public QFrame {
 public:
   ImageView(Filter *filter, QWidget *parent = nullptr);
   void setImage(const QUrl &url);
+  void setImage(const QImage &image);
   void setFlipHorizontal(bool flip);
   void setFlipVertical(bool flip);
 

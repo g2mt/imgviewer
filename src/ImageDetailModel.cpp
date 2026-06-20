@@ -29,12 +29,17 @@ QVariant ImageDetailModel::data(const QModelIndex &index, int role) const {
   switch (role) {
   case Qt::DisplayRole:
   case FileNameRole:
-    return entry.path.fileName();
-  case FilePathRole:
-    return entry.path.toString();
+    return entry.name();
+  case FilePathRole: {
+    if (auto *ve = std::get_if<VirtualDirectoryEntry>(&entry.path))
+      return ve->image;
+    return std::get<QUrl>(entry.path).toString();
+  }
   case ThumbnailRole: {
-    const QString path = entry.path.toString();
-    auto it = m_thumbnails.constFind(path);
+    if (auto *ve = std::get_if<VirtualDirectoryEntry>(&entry.path))
+      return QPixmap::fromImage(ve->image);
+    const QString key = std::get<QUrl>(entry.path).toString();
+    auto it = m_thumbnails.constFind(key);
     if (it != m_thumbnails.constEnd())
       return *it;
     requestThumbnail(entry);
@@ -55,14 +60,17 @@ void ImageDetailModel::reload() {
   const QString search = m_filter->search();
   const QList<QString> tags = m_filter->tags();
   entries.removeIf([&](const DirectoryEntry &entry) {
+    if (std::holds_alternative<VirtualDirectoryEntry>(entry.path))
+      return false;
     if (entry.isDir)
       return true;
     if (!entry.isImagePath())
       return true;
     if (!search.isEmpty() &&
-        !entry.path.fileName().contains(search, Qt::CaseInsensitive))
+        !entry.name().contains(search, Qt::CaseInsensitive))
       return true;
-    if (!tags.isEmpty() && !m_filter->fileHasTags(entry.path.toString()))
+    if (!tags.isEmpty() &&
+        !m_filter->fileHasTags(std::get<QUrl>(entry.path).toString()))
       return true;
     return false;
   });
@@ -78,8 +86,7 @@ void ImageDetailModel::reload() {
               bool less = false;
               switch (sortBy) {
               case SortBy::Name:
-                less =
-                    collator.compare(a.path.fileName(), b.path.fileName()) < 0;
+                less = collator.compare(a.name(), b.name()) < 0;
                 break;
               case SortBy::DateCreated:
                 less = a.birthTime < b.birthTime;
@@ -96,7 +103,7 @@ void ImageDetailModel::reload() {
 }
 
 void ImageDetailModel::requestThumbnail(const DirectoryEntry &entry) const {
-  const QString path = entry.path.toString();
+  const QString path = std::get<QUrl>(entry.path).toString();
   if (m_pending.contains(path))
     return;
   m_pending.insert(path);
@@ -105,10 +112,12 @@ void ImageDetailModel::requestThumbnail(const DirectoryEntry &entry) const {
 
 #if defined(USE_LIBARCHIVE)
   QImage image;
-  if (entry.path.isLocalFile()) {
-    QImageReader reader(entry.path.toLocalFile());
-    reader.setAutoTransform(true);
-    image = reader.read();
+  if (auto *url = std::get_if<QUrl>(&entry.path)) {
+    if (url->isLocalFile()) {
+      QImageReader reader(url->toLocalFile());
+      reader.setAutoTransform(true);
+      image = reader.read();
+    }
   }
   if (!image.isNull()) {
     image = image.scaled(kThumbnailSize, kThumbnailSize, Qt::KeepAspectRatio,
@@ -116,7 +125,8 @@ void ImageDetailModel::requestThumbnail(const DirectoryEntry &entry) const {
   }
   self->onThumbnailReady(path, image);
 #elif defined(USE_KIO)
-  KIO::StoredTransferJob *job = KIO::storedGet(entry.path, KIO::NoReload);
+  KIO::StoredTransferJob *job =
+      KIO::storedGet(std::get<QUrl>(entry.path), KIO::NoReload);
   connect(job, &KIO::StoredTransferJob::result, self, [self, job, path]() {
     if (!self->m_pending.contains(path))
       return;
@@ -149,7 +159,7 @@ void ImageDetailModel::onThumbnailReady(const QString &path,
   m_thumbnails.insert(path, QPixmap::fromImage(image));
 
   for (int i = 0; i < m_files.size(); ++i) {
-    if (m_files[i].path.toString() == path) {
+    if (std::get<QUrl>(m_files[i].path).toString() == path) {
       const QModelIndex idx = index(i);
       emit dataChanged(idx, idx, {ThumbnailRole, Qt::DecorationRole});
       break;

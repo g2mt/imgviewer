@@ -9,6 +9,10 @@
 
 #include <imgviewer/DirectoryEntry.h>
 
+#ifdef USE_QT_PDF
+#include <QPdfDocument>
+#endif
+
 enum class SortBy { Name, DateCreated, DateModified };
 
 class Filter : public QObject {
@@ -67,7 +71,11 @@ public:
   const QMap<QString, QStringList> &tagMap() const { return m_tagMap; }
   void loadTagsFile(const QString &tagsPath, const QString &pathReplace);
   bool fileHasTags(const QString &filePath) const;
-  QList<DirectoryEntry> listDirectoryEntries() const;
+  QList<DirectoryEntry> listDirectoryEntries();
+
+#ifdef USE_QT_PDF
+  QImage renderPdfPage(int page);
+#endif
 
 private:
 #ifdef USE_LIBARCHIVE
@@ -79,6 +87,10 @@ private:
   };
 #endif
 
+#ifdef USE_QT_PDF
+  QList<DirectoryEntry> listPdfEntries();
+#endif
+
   QString m_search;
   SortBy m_sortBy = SortBy::Name;
   bool m_descending = false;
@@ -88,5 +100,8 @@ private:
   QMap<QString, QStringList> m_tagMap;
 #ifdef USE_LIBARCHIVE
   std::unique_ptr<ArchiveTemp> m_archiveTemp;
+#endif
+#ifdef USE_QT_PDF
+  std::unique_ptr<QPdfDocument> m_pdfDocument;
 #endif
 };

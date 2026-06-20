@@ -3,7 +3,10 @@
 #include <QFileInfo>
 
 bool DirectoryEntry::isImagePath() const {
-  const QString ext = QFileInfo(path.fileName()).suffix().toLower();
+  if (std::holds_alternative<VirtualDirectoryEntry>(path))
+    return true;
+  const QString ext =
+      QFileInfo(std::get<QUrl>(path).fileName()).suffix().toLower();
   return ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" ||
          ext == "gif" || ext == "pbm" || ext == "pgm" || ext == "ppm" ||
          ext == "xbm" || ext == "xpm" || ext == "svg" || ext == "webp" ||
@@ -11,7 +14,14 @@ bool DirectoryEntry::isImagePath() const {
 }
 
 bool DirectoryEntry::isArchivePath() const {
-  const QString ext = QFileInfo(path.fileName()).suffix().toLower();
+  if (std::holds_alternative<VirtualDirectoryEntry>(path))
+    return false;
+  const QString ext =
+      QFileInfo(std::get<QUrl>(path).fileName()).suffix().toLower();
+#ifdef USE_QT_PDF
+  if (ext == "pdf")
+    return true;
+#endif
   return ext == "zip" || ext == "tar" || ext == "tgz" || ext == "tbz2" ||
          ext == "txz" || ext == "7z" || ext == "rar" || ext == "gz" ||
          ext == "bz2" || ext == "xz" || ext == "lz" || ext == "lzma" ||
