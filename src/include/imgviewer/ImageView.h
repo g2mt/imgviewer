@@ -5,6 +5,7 @@
 #include <QPoint>
 #include <QPointF>
 #include <QString>
+#include <QTimer>
 
 class Filter;
 #ifdef USE_KIO
@@ -72,7 +73,9 @@ private:
   QPixmap m_pixmap;
   Camera m_camera;
   QPointF m_lastMousePos;
+  QTimer *m_cursorTimer;
   bool m_panning = false;
+  bool m_cursorHidden = false;
   bool m_flipH = false;
   bool m_flipV = false;
 #ifdef USE_KIO

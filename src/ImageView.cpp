@@ -41,7 +41,18 @@ ImageView::ImageView(Filter *filter, QWidget *parent)
 
   setStyleSheet("background-color: #333; color: #eee;");
   setAcceptDrops(true);
+  setMouseTracking(true);
   grabGesture(Qt::PinchGesture);
+
+  m_cursorTimer = new QTimer(this);
+  m_cursorTimer->setSingleShot(true);
+  m_cursorTimer->setInterval(2000);
+  connect(m_cursorTimer, &QTimer::timeout, this, [this]() {
+    if (!m_panning) {
+      setCursor(Qt::BlankCursor);
+      m_cursorHidden = true;
+    }
+  });
 }
 
 void ImageView::setImage(const QUrl &url) {
@@ -212,6 +223,11 @@ void ImageView::dropEvent(QDropEvent *event) {
 }
 
 void ImageView::mousePressEvent(QMouseEvent *event) {
+  m_cursorTimer->start();
+  if (m_cursorHidden) {
+    setCursor(Qt::ArrowCursor);
+    m_cursorHidden = false;
+  }
   if (hasImage() && event->button() == Qt::LeftButton) {
     m_panning = true;
     m_lastMousePos = event->position();
@@ -221,6 +237,11 @@ void ImageView::mousePressEvent(QMouseEvent *event) {
 }
 
 void ImageView::mouseMoveEvent(QMouseEvent *event) {
+  if (m_cursorHidden) {
+    setCursor(m_panning ? Qt::ClosedHandCursor : Qt::ArrowCursor);
+    m_cursorHidden = false;
+  }
+  m_cursorTimer->start();
   if (m_panning) {
     const QPointF delta = event->position() - m_lastMousePos;
     m_camera.offset += delta;
@@ -234,6 +255,8 @@ void ImageView::mouseReleaseEvent(QMouseEvent *event) {
   if (m_panning && event->button() == Qt::LeftButton) {
     m_panning = false;
     setCursor(Qt::ArrowCursor);
+    m_cursorHidden = false;
+    m_cursorTimer->start();
   }
   QFrame::mouseReleaseEvent(event);
 }
