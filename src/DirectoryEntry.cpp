@@ -2,11 +2,12 @@
 
 #include <QFileInfo>
 
+bool BaseDirectoryEntry::isImagePath() const { return false; }
+
+bool BaseDirectoryEntry::isArchivePath() const { return false; }
+
 bool DirectoryEntry::isImagePath() const {
-  if (std::holds_alternative<VirtualDirectoryEntry>(data))
-    return true;
-  const QString ext =
-      QFileInfo(std::get<QUrl>(data).fileName()).suffix().toLower();
+  const QString ext = QFileInfo(m_url.fileName()).suffix().toLower();
   return ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" ||
          ext == "gif" || ext == "pbm" || ext == "pgm" || ext == "ppm" ||
          ext == "xbm" || ext == "xpm" || ext == "svg" || ext == "webp" ||
@@ -14,10 +15,7 @@ bool DirectoryEntry::isImagePath() const {
 }
 
 bool DirectoryEntry::isArchivePath() const {
-  if (std::holds_alternative<VirtualDirectoryEntry>(data))
-    return false;
-  const QString ext =
-      QFileInfo(std::get<QUrl>(data).fileName()).suffix().toLower();
+  const QString ext = QFileInfo(m_url.fileName()).suffix().toLower();
 #ifdef USE_QT_PDF
   if (ext == "pdf")
     return true;
@@ -27,3 +25,16 @@ bool DirectoryEntry::isArchivePath() const {
          ext == "bz2" || ext == "xz" || ext == "lz" || ext == "lzma" ||
          ext == "zst" || ext == "iso" || ext == "cpio" || ext == "ar";
 }
+
+#ifdef USE_QT_PDF
+QImage PdfDirectoryEntry::renderPage() const {
+  if (!m_document || m_document->status() != QPdfDocument::Status::Ready)
+    return {};
+  QSizeF pageSize = m_document->pagePointSize(m_index);
+  QSize imageSize = (pageSize * 1.0).toSize();
+  if (imageSize.isEmpty())
+    imageSize = QSize(1224, 1584);
+  QPdfDocumentRenderOptions opts;
+  return m_document->render(m_index, imageSize, opts);
+}
+#endif

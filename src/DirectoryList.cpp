@@ -25,23 +25,24 @@ DirectoryList::DirectoryList(Filter *filter, QWidget *parent)
 void DirectoryList::populate() {
   clear();
 
+  auto upEntry = QSharedPointer<DirectoryEntry>::create(
+      QUrl(QStringLiteral("..")));
   QTreeWidgetItem *upItem = new QTreeWidgetItem(this);
   upItem->setIcon(0, QIcon::fromTheme("go-up"));
   upItem->setText(1, "..");
-  upItem->setData(
-      1, Qt::UserRole,
-      QVariant::fromValue(DirectoryEntry{QUrl(QStringLiteral(".."))}));
+  upItem->setData(1, Qt::UserRole,
+                  QVariant::fromValue(upEntry));
 
   const auto entries = m_filter->listDirectoryEntries();
   for (const auto &entry : entries) {
-    if (entry.isDir || entry.isArchivePath()) {
+    if (entry->isDir() || entry->isArchivePath()) {
       QTreeWidgetItem *item = new QTreeWidgetItem(this);
       item->setIcon(
-          0, entry.isDir
+          0, entry->isDir()
                  ? QIcon::fromTheme("folder")
                  : QIcon::fromTheme("application-x-archive",
                                     QIcon::fromTheme("package-x-generic")));
-      item->setText(1, entry.name());
+      item->setText(1, entry->name());
       item->setData(1, Qt::UserRole, QVariant::fromValue(entry));
     }
   }
@@ -50,6 +51,7 @@ void DirectoryList::populate() {
 void DirectoryList::onItemActivated(QTreeWidgetItem *item, int column) {
   Q_UNUSED(column);
   QVariant data = item->data(1, Qt::UserRole);
-  Q_ASSERT(data.canConvert<DirectoryEntry>());
-  m_filter->navigateDirectory(data.value<DirectoryEntry>());
+  auto entry = data.value<QSharedPointer<DirectoryEntry>>();
+  Q_ASSERT(entry);
+  m_filter->navigateDirectory(*entry);
 }

@@ -193,8 +193,8 @@ void MainWindow::setupRightSplitter(QSplitter *horizontalSplitter) {
   m_rightSplitter->addWidget(imageList);
   connect(imageList, &ImageDetailList::imageActivated, m_imageView,
           [this](const QVariant &data) {
-            if (data.canConvert<QImage>())
-              m_imageView->setImage(data.value<QImage>());
+            if (auto *pdfEntry = data.value<PdfDirectoryEntry *>())
+              m_imageView->setImage(pdfEntry->renderPage());
             else
               m_imageView->setImage(QUrl(data.toString()));
           });

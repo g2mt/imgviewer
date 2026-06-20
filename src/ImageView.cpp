@@ -205,9 +205,9 @@ void ImageView::dragEnterEvent(QDragEnterEvent *event) {
     for (const QUrl &url : event->mimeData()->urls()) {
       if (url.isLocalFile()) {
         QString path = url.toLocalFile();
-        DirectoryEntry entry;
-        entry.data = QUrl::fromLocalFile(path);
-        if (entry.isImagePath()) {
+        auto entry = QSharedPointer<DirectoryEntry>::create(
+            QUrl::fromLocalFile(path));
+        if (entry->isImagePath()) {
           event->acceptProposedAction();
           return;
         }

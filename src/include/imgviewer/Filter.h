@@ -8,6 +8,7 @@
 #include <memory>
 
 #include <imgviewer/DirectoryEntry.h>
+#include <qsharedpointer.h>
 
 #ifdef USE_QT_PDF
 #include <QPdfDocument>
@@ -58,7 +59,7 @@ public:
 
   const QUrl &currentPath() const { return m_currentUrl; }
   void setCurrentPath(const QString &path);
-  void navigateDirectory(const DirectoryEntry &directory);
+  void navigateDirectory(const DirectoryEntry &entry);
 
   const QList<QString> &tags() const { return m_tags; }
   void setTags(const QList<QString> &t) {
@@ -71,11 +72,7 @@ public:
   const QMap<QString, QStringList> &tagMap() const { return m_tagMap; }
   void loadTagsFile(const QString &tagsPath, const QString &pathReplace);
   bool fileHasTags(const QString &filePath) const;
-  QList<DirectoryEntry> listDirectoryEntries();
-
-#ifdef USE_QT_PDF
-  QImage renderPdfPage(int page);
-#endif
+  QList<QSharedPointer<BaseDirectoryEntry>> listDirectoryEntries();
 
 private:
 #ifdef USE_LIBARCHIVE
@@ -88,7 +85,7 @@ private:
 #endif
 
 #ifdef USE_QT_PDF
-  QList<DirectoryEntry> listPdfEntries();
+  QList<QSharedPointer<BaseDirectoryEntry>> listPdfEntries();
 #endif
 
   QString m_search;
@@ -100,8 +97,5 @@ private:
   QMap<QString, QStringList> m_tagMap;
 #ifdef USE_LIBARCHIVE
   std::unique_ptr<ArchiveTemp> m_archiveTemp;
-#endif
-#ifdef USE_QT_PDF
-  std::unique_ptr<QPdfDocument> m_pdfDocument;
 #endif
 };

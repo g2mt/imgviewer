@@ -150,8 +150,8 @@ bool Filter::extractArchive(const QString &archivePath) {
 
 /** Directory **/
 
-QList<DirectoryEntry> Filter::listDirectoryEntries() {
-  QList<DirectoryEntry> entries;
+QList<QSharedPointer<BaseDirectoryEntry>> Filter::listDirectoryEntries() {
+  QList<QSharedPointer<BaseDirectoryEntry>> entries;
 
 #ifdef USE_QT_PDF
   if (m_currentUrl.isLocalFile() &&
@@ -159,7 +159,6 @@ QList<DirectoryEntry> Filter::listDirectoryEntries() {
                                        Qt::CaseInsensitive)) {
     return listPdfEntries();
   }
-  m_pdfDocument.reset();
 #endif
 
   bool isLocal = m_currentUrl.scheme().isEmpty() ||
@@ -176,11 +175,11 @@ QList<DirectoryEntry> Filter::listDirectoryEntries() {
     for (const QFileInfo &info : infos) {
       if (info.fileName() == "." || info.fileName() == "..")
         continue;
-      DirectoryEntry entry;
-      entry.data = QUrl::fromLocalFile(info.absoluteFilePath());
-      entry.isDir = info.isDir();
-      entry.birthTime = info.birthTime();
-      entry.lastModified = info.lastModified();
+      auto entry = QSharedPointer<DirectoryEntry>::create(
+          QUrl::fromLocalFile(info.absoluteFilePath()));
+      entry->m_isDir = info.isDir();
+      entry->m_birthTime = info.birthTime();
+      entry->m_lastModified = info.lastModified();
       entries.append(entry);
     }
     return entries;
@@ -193,14 +192,13 @@ QList<DirectoryEntry> Filter::listDirectoryEntries() {
   QObject::connect(
       job, &KIO::ListJob::entries, &loop, [&](auto, const auto &list) {
         for (const auto &uds : list) {
-          DirectoryEntry entry;
           const QString name = uds.stringValue(KIO::UDSEntry::UDS_NAME);
           if (name.isEmpty() || name == "." || name == "..")
             continue;
+          auto entry = QSharedPointer<DirectoryEntry>::create(
+              m_currentUrl.resolved(name));
           const mode_t mode = uds.numberValue(KIO::UDSEntry::UDS_FILE_TYPE);
-          entry.isDir = S_ISDIR(mode);
-          QUrl entryUrl = m_currentUrl.resolved(name);
-          entry.path = entryUrl;
+          entry->m_isDir = S_ISDIR(mode);
           entries.append(entry);
         }
       });
@@ -213,17 +211,14 @@ QList<DirectoryEntry> Filter::listDirectoryEntries() {
 
 void Filter::setCurrentPath(const QString &path) {
   m_currentUrl = QUrl::fromUserInput(path);
-#ifdef USE_QT_PDF
-  if (!m_currentUrl.fileName().endsWith(QLatin1String(".pdf"),
-                                        Qt::CaseInsensitive))
-    m_pdfDocument.reset();
-#endif
   emit changed();
 }
 
 void Filter::navigateDirectory(const DirectoryEntry &entry) {
+  const QUrl &url = entry->url();
+
   // Handle ".." — navigate to parent directory
-  if (std::get<QUrl>(entry.data).toString() == QLatin1String("..")) {
+  if (url.toString() == QLatin1String("..")) {
 #if defined(USE_LIBARCHIVE)
     if (m_archiveTemp) {
       QUrl parentUrl = m_currentUrl.resolved(QUrl(".."));
@@ -252,7 +247,6 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
       return;
     }
 #endif
-
     // Local file: use QDir::cdUp
     if (m_currentUrl.isLocalFile()) {
       QDir dir(m_currentUrl.toLocalFile());
@@ -269,19 +263,17 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
 
   // First navigation: current path is empty, accept the entry as-is
   if (m_currentUrl.isEmpty()) {
-    m_currentUrl = std::get<QUrl>(entry.data);
+    m_currentUrl = url;
     emit changed();
     return;
   }
 
 #ifdef USE_QT_PDF
-  if (auto *url = std::get_if<QUrl>(&entry.data)) {
-    if (url->fileName().endsWith(QLatin1String(".pdf"), Qt::CaseInsensitive) &&
-        url->isLocalFile()) {
-      m_currentUrl = *url;
-      emit changed();
-      return;
-    }
+  if (url.isLocalFile() &&
+      url.fileName().endsWith(QLatin1String(".pdf"), Qt::CaseInsensitive)) {
+    m_currentUrl = url;
+    emit changed();
+    return;
   }
 #endif
 
@@ -292,7 +284,7 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
     if (temp->dir.isValid()) {
       temp->parentUrl = m_currentUrl;
       m_archiveTemp = std::move(temp);
-      if (extractArchive(std::get<QUrl>(entry.data).toLocalFile())) {
+      if (extractArchive(url.toLocalFile())) {
         m_currentUrl = QUrl::fromLocalFile(m_archiveTemp->dir.path());
         emit changed();
         return;
@@ -304,11 +296,10 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
 #elif defined(USE_KIO)
   // Local entry that looks like an archive — navigate into it via zip:// scheme
   if (entry.isArchivePath()) {
-    QUrl archiveUrl(std::get<QUrl>(entry.path));
+    QUrl archiveUrl(url);
     archiveUrl.setScheme(QStringLiteral("zip"));
-    if (!archiveUrl.path().endsWith("/")) {
+    if (!archiveUrl.path().endsWith("/"))
       archiveUrl.setPath(archiveUrl.path() + "/");
-    }
     m_currentUrl = archiveUrl;
     emit changed();
     return;
@@ -316,49 +307,32 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
 #endif
 
   // Normal directory navigation: switch to the entry's path
-  m_currentUrl = std::get<QUrl>(entry.data);
+  m_currentUrl = url;
   emit changed();
 }
 
 #ifdef USE_QT_PDF
 
-QList<DirectoryEntry> Filter::listPdfEntries() {
-  QList<DirectoryEntry> entries;
+QList<QSharedPointer<BaseDirectoryEntry>> Filter::listPdfEntries() {
+  QList<QSharedPointer<BaseDirectoryEntry>> entries;
 
-  if (!m_pdfDocument) {
-    m_pdfDocument = std::make_unique<QPdfDocument>();
-    auto err = m_pdfDocument->load(m_currentUrl.toLocalFile());
-    if (err != QPdfDocument::Error::None ||
-        m_pdfDocument->status() != QPdfDocument::Status::Ready)
-      return entries;
-  } else if (m_pdfDocument->status() != QPdfDocument::Status::Ready) {
-    auto err = m_pdfDocument->load(m_currentUrl.toLocalFile());
-    if (err != QPdfDocument::Error::None ||
-        m_pdfDocument->status() != QPdfDocument::Status::Ready)
-      return entries;
-  }
+  auto pdfDocument = QSharedPointer<QPdfDocument>(new QPdfDocument());
+  auto err = pdfDocument->load(m_currentUrl.toLocalFile());
+  if (err != QPdfDocument::Error::None ||
+      pdfDocument->status() != QPdfDocument::Status::Ready)
+    return entries;
 
-  int pageCount = m_pdfDocument->pageCount();
+  int pageCount = pdfDocument->pageCount();
   entries.reserve(pageCount);
 
   for (int i = 0; i < pageCount; ++i) {
-    DirectoryEntry entry;
-    entry.data = VirtualDirectoryEntry{i, renderPdfPage(i)};
-    entries.append(entry);
+    auto pdfEntry = QSharedPointer<PdfDirectoryEntry>::create();
+    pdfEntry->setPageIndex(i);
+    pdfEntry->setPdfDocument(pdfDocument);
+    entries.append(pdfEntry);
   }
 
   return entries;
-}
-
-QImage Filter::renderPdfPage(int page) {
-  if (!m_pdfDocument || m_pdfDocument->status() != QPdfDocument::Status::Ready)
-    return {};
-  QSizeF pageSize = m_pdfDocument->pagePointSize(page);
-  QSize imageSize = (pageSize * 1.0).toSize();
-  if (imageSize.isEmpty())
-    imageSize = QSize(1224, 1584);
-  QPdfDocumentRenderOptions opts;
-  return m_pdfDocument->render(page, imageSize, opts);
 }
 
 #endif

@@ -37,10 +37,10 @@ private slots:
   void onThumbnailReady(const QString &path, const QImage &image);
 
 private:
-  void requestThumbnail(const DirectoryEntry &entry) const;
+  void requestThumbnail(const QSharedPointer<DirectoryEntry> &entry) const;
 
   Filter *m_filter;
-  QList<DirectoryEntry> m_files;
+  QList<QSharedPointer<BaseDirectoryEntry>> m_files;
   mutable QHash<QString, QPixmap> m_thumbnails;
   mutable QSet<QString> m_pending;
 };
