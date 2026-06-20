@@ -76,7 +76,8 @@ void ImageView::setImage(const QUrl &url) {
     oldJob->kill();
   }
 
-  KIO::StoredTransferJob *job = KIO::storedGet(url, KIO::NoReload);
+  KIO::StoredTransferJob *job =
+      KIO::storedGet(url, KIO::NoReload, KIO::HideProgressInfo);
   connect(job, &KIO::StoredTransferJob::result, this, [this, job]() {
     if (m_currentJob != job)
       return;
