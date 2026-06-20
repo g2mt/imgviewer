@@ -11,6 +11,7 @@ TagList::TagList(Filter *filter, QWidget *parent)
   header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
   setRootIsDecorated(false);
   setSelectionMode(QAbstractItemView::MultiSelection);
+  setSortingEnabled(true);
 
   connect(m_filter, &Filter::tagsLoaded, this, &TagList::populate);
   connect(this, &QTreeWidget::itemSelectionChanged, this,

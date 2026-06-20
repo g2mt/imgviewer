@@ -13,6 +13,8 @@ DirectoryList::DirectoryList(Filter *filter, QWidget *parent)
   header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
   setRootIsDecorated(false);
   setSelectionMode(QAbstractItemView::SingleSelection);
+  setSortingEnabled(true);
+  sortByColumn(1, Qt::AscendingOrder);
 
   populate();
   connect(m_filter, &Filter::changed, this, &DirectoryList::populate);
