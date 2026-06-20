@@ -214,7 +214,7 @@ void Filter::setCurrentPath(const QString &path) {
   emit changed();
 }
 
-void Filter::navigateDirectory(const DirectoryEntry &entry) {
+void Filter::navigateDirectory(const QSharedPointer<DirectoryEntry> entry) {
   const QUrl &url = entry->url();
 
   // Handle ".." — navigate to parent directory
@@ -279,7 +279,7 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
 
 #if defined(USE_LIBARCHIVE)
   // Local entry that looks like an archive — extract it to a temp directory
-  if (entry.isArchivePath()) {
+  if (entry->isArchivePath()) {
     auto temp = std::make_unique<ArchiveTemp>();
     if (temp->dir.isValid()) {
       temp->parentUrl = m_currentUrl;
@@ -295,7 +295,7 @@ void Filter::navigateDirectory(const DirectoryEntry &entry) {
   }
 #elif defined(USE_KIO)
   // Local entry that looks like an archive — navigate into it via zip:// scheme
-  if (entry.isArchivePath()) {
+  if (entry->isArchivePath()) {
     QUrl archiveUrl(url);
     archiveUrl.setScheme(QStringLiteral("zip"));
     if (!archiveUrl.path().endsWith("/"))

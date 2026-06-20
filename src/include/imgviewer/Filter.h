@@ -59,7 +59,7 @@ public:
 
   const QUrl &currentPath() const { return m_currentUrl; }
   void setCurrentPath(const QString &path);
-  void navigateDirectory(const DirectoryEntry &entry);
+  void navigateDirectory(const QSharedPointer<DirectoryEntry> entry);
 
   const QList<QString> &tags() const { return m_tags; }
   void setTags(const QList<QString> &t) {

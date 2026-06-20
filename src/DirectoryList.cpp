@@ -1,3 +1,4 @@
+#include "imgviewer/DirectoryEntry.h"
 #include <imgviewer/DirectoryList.h>
 #include <imgviewer/Filter.h>
 
@@ -5,6 +6,7 @@
 #include <QHeaderView>
 #include <QIcon>
 #include <qassert.h>
+#include <qsharedpointer.h>
 
 DirectoryList::DirectoryList(Filter *filter, QWidget *parent)
     : QTreeWidget(parent), m_filter(filter) {
@@ -25,24 +27,25 @@ DirectoryList::DirectoryList(Filter *filter, QWidget *parent)
 void DirectoryList::populate() {
   clear();
 
-  auto upEntry = QSharedPointer<DirectoryEntry>::create(
-      QUrl(QStringLiteral("..")));
+  auto upEntry =
+      QSharedPointer<DirectoryEntry>::create(QUrl(QStringLiteral("..")));
   QTreeWidgetItem *upItem = new QTreeWidgetItem(this);
   upItem->setIcon(0, QIcon::fromTheme("go-up"));
   upItem->setText(1, "..");
-  upItem->setData(1, Qt::UserRole,
-                  QVariant::fromValue(upEntry));
+  upItem->setData(1, Qt::UserRole, QVariant::fromValue(upEntry));
 
   const auto entries = m_filter->listDirectoryEntries();
-  for (const auto &entry : entries) {
-    if (entry->isDir() || entry->isArchivePath()) {
+  for (const auto &base_entry : entries) {
+    if (base_entry->isDir() || base_entry->isArchivePath()) {
+      QSharedPointer<DirectoryEntry> entry =
+          qSharedPointerCast<DirectoryEntry>(base_entry);
       QTreeWidgetItem *item = new QTreeWidgetItem(this);
       item->setIcon(
-          0, entry->isDir()
+          0, base_entry->isDir()
                  ? QIcon::fromTheme("folder")
                  : QIcon::fromTheme("application-x-archive",
                                     QIcon::fromTheme("package-x-generic")));
-      item->setText(1, entry->name());
+      item->setText(1, base_entry->name());
       item->setData(1, Qt::UserRole, QVariant::fromValue(entry));
     }
   }
@@ -51,7 +54,8 @@ void DirectoryList::populate() {
 void DirectoryList::onItemActivated(QTreeWidgetItem *item, int column) {
   Q_UNUSED(column);
   QVariant data = item->data(1, Qt::UserRole);
-  auto entry = data.value<QSharedPointer<DirectoryEntry>>();
+  QSharedPointer<DirectoryEntry> entry =
+      data.value<QSharedPointer<DirectoryEntry>>();
   Q_ASSERT(entry);
-  m_filter->navigateDirectory(*entry);
+  m_filter->navigateDirectory(entry);
 }

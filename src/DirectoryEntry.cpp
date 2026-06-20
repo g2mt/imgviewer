@@ -1,6 +1,13 @@
 #include <imgviewer/DirectoryEntry.h>
 
+#ifdef USE_KIO
+#include <KIO/StoredTransferJob>
+#endif
+#include <QBuffer>
 #include <QFileInfo>
+#include <QImageReader>
+
+void BaseDirectoryEntry::requestThumbnail() {}
 
 bool BaseDirectoryEntry::isImagePath() const { return false; }
 
@@ -26,7 +33,68 @@ bool DirectoryEntry::isArchivePath() const {
          ext == "zst" || ext == "iso" || ext == "cpio" || ext == "ar";
 }
 
+void DirectoryEntry::requestThumbnail() {
+  if (m_thumbnailPending)
+    return;
+  m_thumbnailPending = true;
+
+#if defined(USE_LIBARCHIVE)
+  QImage image;
+  if (m_url.isLocalFile()) {
+    QImageReader reader(m_url.toLocalFile());
+    reader.setAutoTransform(true);
+    image = reader.read();
+  }
+  if (!image.isNull()) {
+    image = image.scaled(kThumbnailSize, kThumbnailSize, Qt::KeepAspectRatio,
+                         Qt::SmoothTransformation);
+    m_thumbnail = QPixmap::fromImage(image);
+  }
+  m_thumbnailPending = false;
+  if (!m_thumbnail.isNull())
+    emit thumbnailReady();
+#elif defined(USE_KIO)
+  auto *job = KIO::storedGet(m_url, KIO::NoReload);
+  connect(job, &KIO::StoredTransferJob::result, this, [this, job]() {
+    QImage image;
+    if (!job->error()) {
+      const QByteArray bytes = job->data();
+      QBuffer buffer;
+      buffer.setData(bytes);
+      buffer.open(QIODevice::ReadOnly);
+      QImageReader reader(&buffer);
+      reader.setAutoTransform(true);
+      image = reader.read();
+    }
+    if (!image.isNull()) {
+      image = image.scaled(kThumbnailSize, kThumbnailSize, Qt::KeepAspectRatio,
+                           Qt::SmoothTransformation);
+      m_thumbnail = QPixmap::fromImage(image);
+    }
+    m_thumbnailPending = false;
+    if (!m_thumbnail.isNull())
+      emit thumbnailReady();
+  });
+#endif
+}
+
 #ifdef USE_QT_PDF
+void PdfDirectoryEntry::requestThumbnail() {
+  if (m_thumbnailPending)
+    return;
+  m_thumbnailPending = true;
+
+  QImage image = renderPage();
+  if (!image.isNull()) {
+    image = image.scaled(kThumbnailSize, kThumbnailSize, Qt::KeepAspectRatio,
+                         Qt::SmoothTransformation);
+    m_thumbnail = QPixmap::fromImage(image);
+  }
+  m_thumbnailPending = false;
+  if (!m_thumbnail.isNull())
+    emit thumbnailReady();
+}
+
 QImage PdfDirectoryEntry::renderPage() const {
   if (!m_document || m_document->status() != QPdfDocument::Status::Ready)
     return {};
