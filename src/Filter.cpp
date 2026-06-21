@@ -17,6 +17,10 @@
 #include <KIO/StoredTransferJob>
 #endif
 
+Filter::Filter() {
+  connect(this, &Filter::changed, this, &Filter::requestDirectoryEntries);
+}
+
 namespace {
 
 QStringList parseCsvLine(const QString &line) {
@@ -150,14 +154,13 @@ bool Filter::extractArchive(const QString &archivePath) {
 
 /** Directory **/
 
-QList<QSharedPointer<BaseDirectoryEntry>> Filter::listDirectoryEntries() {
-  QList<QSharedPointer<BaseDirectoryEntry>> entries;
-
+void Filter::requestDirectoryEntries() {
 #ifdef USE_QT_PDF
   if (m_currentUrl.isLocalFile() &&
       m_currentUrl.fileName().endsWith(QLatin1String(".pdf"),
                                        Qt::CaseInsensitive)) {
-    return listPdfEntries();
+    listPdfEntries();
+    return;
   }
 #endif
 
@@ -171,7 +174,7 @@ QList<QSharedPointer<BaseDirectoryEntry>> Filter::listDirectoryEntries() {
     QDir dir(local);
     const QFileInfoList infos = dir.entryInfoList(
         QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
-    entries.reserve(infos.size());
+    m_dirEntries.reserve(infos.size());
     for (const QFileInfo &info : infos) {
       if (info.fileName() == "." || info.fileName() == "..")
         continue;
@@ -180,9 +183,9 @@ QList<QSharedPointer<BaseDirectoryEntry>> Filter::listDirectoryEntries() {
       entry->m_isDir = info.isDir();
       entry->m_birthTime = info.birthTime();
       entry->m_lastModified = info.lastModified();
-      entries.append(entry);
+      m_dirEntries.append(entry);
     }
-    return entries;
+    return;
   }
 
 #ifdef USE_KIO
@@ -199,19 +202,14 @@ QList<QSharedPointer<BaseDirectoryEntry>> Filter::listDirectoryEntries() {
               m_currentUrl.resolved(name));
           const mode_t mode = uds.numberValue(KIO::UDSEntry::UDS_FILE_TYPE);
           entry->m_isDir = S_ISDIR(mode);
-          entries.append(entry);
+          m_dirEntries.append(entry);
         }
       });
   QObject::connect(job, &KIO::ListJob::result, &loop,
                    [&loop](auto...) { loop.quit(); });
   loop.exec();
 #endif
-  return entries;
-}
-
-void Filter::setCurrentPath(const QString &path) {
-  m_currentUrl = QUrl::fromUserInput(path);
-  emit changed();
+  return;
 }
 
 void Filter::navigateDirectory(const QSharedPointer<DirectoryEntry> entry) {
