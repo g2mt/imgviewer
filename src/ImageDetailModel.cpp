@@ -17,7 +17,8 @@ int ImageDetailModel::rowCount(const QModelIndex &parent) const {
 }
 
 QVariant ImageDetailModel::data(const QModelIndex &index, int role) const {
-  if (!index.isValid() || index.row() < 0 || index.row() >= m_filteredIndices.size())
+  if (!index.isValid() || index.row() < 0 ||
+      index.row() >= m_filteredIndices.size())
     return {};
   const auto &entries = m_filter->dirEntries();
   const auto &entry = entries[m_filteredIndices[index.row()]];

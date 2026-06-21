@@ -51,7 +51,8 @@ void MainWindow::setupFilterMenu(QMenu *filterMenu) {
   QActionGroup *sortGroup = new QActionGroup(this);
   sortGroup->setExclusive(true);
 
-  auto makeSortAction = [&](const QString &text, SortBy sortBy, bool checked = false) {
+  auto makeSortAction = [&](const QString &text, SortBy sortBy,
+                            bool checked = false) {
     QAction *act = filterMenu->addAction(text);
     act->setCheckable(true);
     act->setChecked(checked);
