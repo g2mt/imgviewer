@@ -28,8 +28,10 @@ QVariant ImageDetailModel::data(const QModelIndex &index, int role) const {
   case FileNameRole:
     return entry->name();
   case FilePathRole: {
+#ifdef USE_QT_PDF
     if (auto *pdfEntry = qobject_cast<PdfDirectoryEntry *>(entry.data()))
       return QVariant::fromValue(pdfEntry);
+#endif
     return qobject_cast<DirectoryEntry *>(entry.data())->url().toString();
   }
   case ThumbnailRole: {
@@ -54,9 +56,13 @@ void ImageDetailModel::reload() {
   // Build list of indices that pass the filter
   for (int i = 0; i < entries.size(); ++i) {
     const auto &entry = entries[i];
-    if (qobject_cast<PdfDirectoryEntry *>(entry.data()))
-      ; // keep
-    else if (entry->isDir())
+#ifdef USE_QT_PDF
+    if (qobject_cast<PdfDirectoryEntry *>(entry.data())) {
+      m_filteredIndices.append(i);
+      continue;
+    }
+#endif
+    if (entry->isDir())
       continue;
     else if (!entry->isImagePath())
       continue;

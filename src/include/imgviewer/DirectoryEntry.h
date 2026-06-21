@@ -61,6 +61,7 @@ private:
   QUrl m_url;
 };
 
+#ifdef USE_QT_PDF
 class PdfDirectoryEntry : public BaseDirectoryEntry {
   Q_OBJECT
 public:
@@ -85,3 +86,4 @@ private:
   int m_index = 0;
   QSharedPointer<QPdfDocument> m_document;
 };
+#endif
