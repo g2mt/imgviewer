@@ -27,7 +27,7 @@ class Filter : public QObject {
 signals:
   void changed();
   void tagsLoaded();
-  void dirEntriesUpdated();
+  void dirEntriesLoaded();
 
 public:
   Filter();

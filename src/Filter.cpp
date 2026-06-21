@@ -187,7 +187,7 @@ void Filter::requestDirectoryEntries() {
       entry->m_lastModified = info.lastModified();
       m_dirEntries.append(entry);
     }
-    emit dirEntriesUpdated();
+    emit dirEntriesLoaded();
     return;
   }
 
@@ -215,7 +215,7 @@ void Filter::requestDirectoryEntries() {
       });
   QObject::connect(m_job, &KIO::ListJob::result, this, [this](auto...) {
     m_job = nullptr;
-    emit dirEntriesUpdated();
+    emit dirEntriesLoaded();
   });
 #endif
   return;

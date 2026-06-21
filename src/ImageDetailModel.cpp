@@ -7,7 +7,7 @@
 ImageDetailModel::ImageDetailModel(Filter *filter, QObject *parent)
     : QAbstractListModel(parent), m_filter(filter) {
   populate();
-  connect(m_filter, &Filter::dirEntriesUpdated, this,
+  connect(m_filter, &Filter::dirEntriesLoaded, this,
           &ImageDetailModel::populate);
 }
 
