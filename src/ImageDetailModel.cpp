@@ -13,13 +13,14 @@ ImageDetailModel::ImageDetailModel(Filter *filter, QObject *parent)
 int ImageDetailModel::rowCount(const QModelIndex &parent) const {
   if (parent.isValid())
     return 0;
-  return m_files.size();
+  return m_filteredIndices.size();
 }
 
 QVariant ImageDetailModel::data(const QModelIndex &index, int role) const {
-  if (!index.isValid() || index.row() < 0 || index.row() >= m_files.size())
+  if (!index.isValid() || index.row() < 0 || index.row() >= m_filteredIndices.size())
     return {};
-  const auto &entry = m_files[index.row()];
+  const auto &entries = m_filter->dirEntries();
+  const auto &entry = entries[m_filteredIndices[index.row()]];
 
   switch (role) {
   case Qt::DisplayRole:
@@ -43,28 +44,31 @@ QVariant ImageDetailModel::data(const QModelIndex &index, int role) const {
 
 void ImageDetailModel::reload() {
   beginResetModel();
-  m_files.clear();
+  m_filteredIndices.clear();
 
-  auto entries = m_filter->listDirectoryEntries();
+  const auto &entries = m_filter->dirEntries();
   const QString search = m_filter->search();
   const QList<QString> tags = m_filter->tags();
-  entries.removeIf([&](const QSharedPointer<BaseDirectoryEntry> &entry) {
+
+  // Build list of indices that pass the filter
+  for (int i = 0; i < entries.size(); ++i) {
+    const auto &entry = entries[i];
     if (qobject_cast<PdfDirectoryEntry *>(entry.data()))
-      return false;
-    if (entry->isDir())
-      return true;
-    if (!entry->isImagePath())
-      return true;
-    if (!search.isEmpty() &&
-        !entry->name().contains(search, Qt::CaseInsensitive))
-      return true;
-    if (!tags.isEmpty()) {
+      ; // keep
+    else if (entry->isDir())
+      continue;
+    else if (!entry->isImagePath())
+      continue;
+    else if (!search.isEmpty() &&
+             !entry->name().contains(search, Qt::CaseInsensitive))
+      continue;
+    else if (!tags.isEmpty()) {
       auto *de = qobject_cast<DirectoryEntry *>(entry.data());
       if (de && !m_filter->fileHasTags(de->url().toString()))
-        return true;
+        continue;
     }
-    return false;
-  });
+    m_filteredIndices.append(i);
+  }
 
   QCollator collator;
   collator.setCaseSensitivity(Qt::CaseInsensitive);
@@ -72,28 +76,27 @@ void ImageDetailModel::reload() {
 
   const SortBy sortBy = m_filter->sortBy();
   const bool descending = m_filter->descending();
-  std::sort(entries.begin(), entries.end(),
-            [&](const QSharedPointer<BaseDirectoryEntry> &a,
-                const QSharedPointer<BaseDirectoryEntry> &b) {
+  std::sort(m_filteredIndices.begin(), m_filteredIndices.end(),
+            [&](int a, int b) {
+              const auto &entryA = entries[a];
+              const auto &entryB = entries[b];
               bool less = false;
               switch (sortBy) {
               case SortBy::Name:
-                less = collator.compare(a->name(), b->name()) < 0;
+                less = collator.compare(entryA->name(), entryB->name()) < 0;
                 break;
               case SortBy::DateCreated:
-                less = a->birthTime() < b->birthTime();
+                less = entryA->birthTime() < entryB->birthTime();
                 break;
               case SortBy::DateModified:
-                less = a->lastModified() < b->lastModified();
+                less = entryA->lastModified() < entryB->lastModified();
                 break;
               }
               return descending ? !less : less;
             });
 
-  m_files = std::move(entries);
-
-  for (int i = 0; i < m_files.size(); ++i) {
-    const auto &entry = m_files[i];
+  for (int i = 0; i < m_filteredIndices.size(); ++i) {
+    const auto &entry = entries[m_filteredIndices[i]];
     connect(entry.data(), &BaseDirectoryEntry::thumbnailReady, this,
             [this, i]() {
               const QModelIndex idx = index(i);

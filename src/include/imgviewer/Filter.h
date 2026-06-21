@@ -2,13 +2,12 @@
 #include <QList>
 #include <QMap>
 #include <QObject>
+#include <QSharedPointer>
 #include <QString>
 #include <QStringList>
 #include <QTemporaryDir>
-#include <memory>
 
 #include <imgviewer/DirectoryEntry.h>
-#include <qsharedpointer.h>
 
 #ifdef USE_QT_PDF
 #include <QPdfDocument>
@@ -95,7 +94,7 @@ private:
 #endif
 
 #ifdef USE_QT_PDF
-  QList<QSharedPointer<BaseDirectoryEntry>> listPdfEntries();
+  void requestPdfEntries();
 #endif
 
   QString m_search;

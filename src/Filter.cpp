@@ -155,11 +155,13 @@ bool Filter::extractArchive(const QString &archivePath) {
 /** Directory **/
 
 void Filter::requestDirectoryEntries() {
+  m_dirEntries.clear();
+
 #ifdef USE_QT_PDF
   if (m_currentUrl.isLocalFile() &&
       m_currentUrl.fileName().endsWith(QLatin1String(".pdf"),
                                        Qt::CaseInsensitive)) {
-    listPdfEntries();
+    requestPdfEntries();
     return;
   }
 #endif
@@ -311,26 +313,22 @@ void Filter::navigateDirectory(const QSharedPointer<DirectoryEntry> entry) {
 
 #ifdef USE_QT_PDF
 
-QList<QSharedPointer<BaseDirectoryEntry>> Filter::listPdfEntries() {
-  QList<QSharedPointer<BaseDirectoryEntry>> entries;
-
+void Filter::requestPdfEntries() {
   auto pdfDocument = QSharedPointer<QPdfDocument>(new QPdfDocument());
   auto err = pdfDocument->load(m_currentUrl.toLocalFile());
   if (err != QPdfDocument::Error::None ||
       pdfDocument->status() != QPdfDocument::Status::Ready)
-    return entries;
+    return;
 
   int pageCount = pdfDocument->pageCount();
-  entries.reserve(pageCount);
+  m_dirEntries.reserve(pageCount);
 
   for (int i = 0; i < pageCount; ++i) {
     auto pdfEntry = QSharedPointer<PdfDirectoryEntry>::create();
     pdfEntry->setPageIndex(i);
     pdfEntry->setPdfDocument(pdfDocument);
-    entries.append(pdfEntry);
+    m_dirEntries.append(pdfEntry);
   }
-
-  return entries;
 }
 
 #endif

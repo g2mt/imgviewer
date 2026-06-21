@@ -32,5 +32,5 @@ private slots:
 
 private:
   Filter *m_filter;
-  QList<QSharedPointer<BaseDirectoryEntry>> m_files;
+  QList<int> m_filteredIndices;
 };

@@ -34,7 +34,7 @@ void DirectoryList::populate() {
   upItem->setText(1, "..");
   upItem->setData(1, Qt::UserRole, QVariant::fromValue(upEntry));
 
-  const auto entries = m_filter->listDirectoryEntries();
+  const auto &entries = m_filter->dirEntries();
   for (const auto &base_entry : entries) {
     if (base_entry->isDir() || base_entry->isArchivePath()) {
       QSharedPointer<DirectoryEntry> entry =
