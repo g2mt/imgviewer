@@ -9,6 +9,12 @@
 
 #include <imgviewer/DirectoryEntry.h>
 
+#ifdef USE_KIO
+namespace KIO {
+class ListJob;
+}
+#endif
+
 #ifdef USE_QT_PDF
 #include <QPdfDocument>
 #endif
@@ -21,6 +27,7 @@ class Filter : public QObject {
 signals:
   void changed();
   void tagsLoaded();
+  void dirEntriesUpdated();
 
 public:
   Filter();
@@ -107,6 +114,10 @@ private:
   QMap<QString, QStringList> m_tagMap;
 
   QList<QSharedPointer<BaseDirectoryEntry>> m_dirEntries;
+
+#ifdef USE_KIO
+  KIO::ListJob *m_job = nullptr;
+#endif
 
 #ifdef USE_LIBARCHIVE
   std::unique_ptr<ArchiveTemp> m_archiveTemp;

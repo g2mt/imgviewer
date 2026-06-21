@@ -19,7 +19,7 @@ DirectoryList::DirectoryList(Filter *filter, QWidget *parent)
   sortByColumn(1, Qt::AscendingOrder);
 
   populate();
-  connect(m_filter, &Filter::changed, this, &DirectoryList::populate);
+  connect(m_filter, &Filter::dirEntriesUpdated, this, &DirectoryList::populate);
   connect(this, &QTreeWidget::itemActivated, this,
           &DirectoryList::onItemActivated);
 }

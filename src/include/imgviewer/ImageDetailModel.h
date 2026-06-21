@@ -28,7 +28,7 @@ public:
                 int role = Qt::DisplayRole) const override;
 
 private slots:
-  void reload();
+  void populate();
 
 private:
   Filter *m_filter;

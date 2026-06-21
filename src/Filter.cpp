@@ -2,7 +2,6 @@
 
 #include <QBuffer>
 #include <QDir>
-#include <QEventLoop>
 #include <QFile>
 #include <QFileInfo>
 #include <QTextStream>
@@ -162,6 +161,7 @@ void Filter::requestDirectoryEntries() {
       m_currentUrl.fileName().endsWith(QLatin1String(".pdf"),
                                        Qt::CaseInsensitive)) {
     requestPdfEntries();
+    emit dirEntriesUpdated();
     return;
   }
 #endif
@@ -187,15 +187,21 @@ void Filter::requestDirectoryEntries() {
       entry->m_lastModified = info.lastModified();
       m_dirEntries.append(entry);
     }
+    emit dirEntriesUpdated();
     return;
   }
 
 #ifdef USE_KIO
-  KIO::ListJob *job = KIO::listDir(m_currentUrl, KIO::HideProgressInfo);
-  QEventLoop loop;
+  if (m_job) {
+    m_job->kill();
+    m_job = nullptr;
+  }
+
+  m_job = KIO::listDir(m_currentUrl, KIO::HideProgressInfo);
+  m_job->setParent(this);
 
   QObject::connect(
-      job, &KIO::ListJob::entries, &loop, [&](auto, const auto &list) {
+      m_job, &KIO::ListJob::entries, this, [this](auto, const auto &list) {
         for (const auto &uds : list) {
           const QString name = uds.stringValue(KIO::UDSEntry::UDS_NAME);
           if (name.isEmpty() || name == "." || name == "..")
@@ -207,9 +213,10 @@ void Filter::requestDirectoryEntries() {
           m_dirEntries.append(entry);
         }
       });
-  QObject::connect(job, &KIO::ListJob::result, &loop,
-                   [&loop](auto...) { loop.quit(); });
-  loop.exec();
+  QObject::connect(m_job, &KIO::ListJob::result, this, [this](auto...) {
+    m_job = nullptr;
+    emit dirEntriesUpdated();
+  });
 #endif
   return;
 }

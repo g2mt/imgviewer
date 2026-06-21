@@ -6,8 +6,9 @@
 
 ImageDetailModel::ImageDetailModel(Filter *filter, QObject *parent)
     : QAbstractListModel(parent), m_filter(filter) {
-  reload();
-  connect(m_filter, &Filter::changed, this, &ImageDetailModel::reload);
+  populate();
+  connect(m_filter, &Filter::dirEntriesUpdated, this,
+          &ImageDetailModel::populate);
 }
 
 int ImageDetailModel::rowCount(const QModelIndex &parent) const {
@@ -45,7 +46,7 @@ QVariant ImageDetailModel::data(const QModelIndex &index, int role) const {
   }
 }
 
-void ImageDetailModel::reload() {
+void ImageDetailModel::populate() {
   beginResetModel();
   m_filteredIndices.clear();
 
