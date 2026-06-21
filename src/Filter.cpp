@@ -161,7 +161,7 @@ void Filter::requestDirectoryEntries() {
       m_currentUrl.fileName().endsWith(QLatin1String(".pdf"),
                                        Qt::CaseInsensitive)) {
     requestPdfEntries();
-    emit dirEntriesUpdated();
+    emit dirEntriesLoaded();
     return;
   }
 #endif
