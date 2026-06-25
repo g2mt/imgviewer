@@ -261,7 +261,9 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
         if (action->isSeparator() || !action->isEnabled())
           continue;
         if (action == m_backAction || action == m_forwardAction) {
-          // TODO: Only activate if mouse is over the image widget
+          // Only activate if mouse is over the image widget, otherwise skip
+          if (!m_imageView->underMouse())
+            continue;
         }
         QKeySequence shortcut = action->shortcut();
         if (!shortcut.isEmpty() &&
