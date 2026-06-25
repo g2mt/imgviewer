@@ -89,7 +89,9 @@ void MainWindow::setupFilterMenu(QMenu *filterMenu) {
 
 void MainWindow::setupToolbar(QToolBar *toolbar) {
   m_backAction = toolbar->addAction(QIcon::fromTheme("go-previous"), "Back");
+  m_backAction->setShortcut(QKeySequence("Left"));
   m_forwardAction = toolbar->addAction(QIcon::fromTheme("go-next"), "Forward");
+  m_forwardAction->setShortcut(QKeySequence("Right"));
   m_backAction->setEnabled(false);
   m_forwardAction->setEnabled(false);
 
@@ -121,6 +123,11 @@ void MainWindow::setupMenuBar() {
   setMenuBar(m_menuBar);
 
   QMenu *fileMenu = m_menuBar->addMenu("&File");
+
+  fileMenu->addAction(m_backAction);
+  fileMenu->addAction(m_forwardAction);
+  fileMenu->addSeparator();
+
   QAction *quitAction = fileMenu->addAction("&Quit");
   quitAction->setShortcut(QKeySequence("Ctrl+Q"));
   connect(quitAction, &QAction::triggered, this, &QMainWindow::close);
@@ -253,6 +260,9 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
       for (QAction *action : menu->actions()) {
         if (action->isSeparator() || !action->isEnabled())
           continue;
+        if (action == m_backAction || action == m_forwardAction) {
+          // TODO: Only activate if mouse is over the image widget
+        }
         QKeySequence shortcut = action->shortcut();
         if (!shortcut.isEmpty() &&
             shortcut.matches(seq) != QKeySequence::NoMatch) {
