@@ -9,6 +9,7 @@
 #include <QTabWidget>
 #include <QTimer>
 #include <QToolButton>
+#include <functional>
 #include <imgviewer/DirectoryListContainer.h>
 #include <imgviewer/ImageDetailList.h>
 #include <imgviewer/ImageView.h>
@@ -244,11 +245,35 @@ void MainWindow::setupEventFilters(QObject *obj) {
 bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
   if (event->type() == QEvent::KeyPress) {
     QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+    // Try to propagate key press events to actions, since Qt normally ignores
+    // them
+    QKeySequence seq(keyEvent->modifiers() | keyEvent->key());
 
-    if (keyEvent->key() == Qt::Key_Tab) {
-      m_collapseViewAction->trigger();
+    std::function<bool(QMenu *)> checkMenu = [&](QMenu *menu) -> bool {
+      for (QAction *action : menu->actions()) {
+        if (action->isSeparator() || !action->isEnabled())
+          continue;
+        QKeySequence shortcut = action->shortcut();
+        if (!shortcut.isEmpty() &&
+            shortcut.matches(seq) != QKeySequence::NoMatch) {
+          action->trigger();
+          return true;
+        }
+        if (QMenu *submenu = action->menu()) {
+          if (checkMenu(submenu))
+            return true;
+        }
+      }
       return false;
+    };
+
+    for (QAction *menuAction : m_menuBar->actions()) {
+      if (QMenu *menu = menuAction->menu()) {
+        if (checkMenu(menu))
+          return false;
+      }
     }
+    return false;
   }
   return QMainWindow::eventFilter(watched, event);
 }
