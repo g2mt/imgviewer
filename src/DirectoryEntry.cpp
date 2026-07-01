@@ -9,20 +9,18 @@
 
 void BaseDirectoryEntry::requestThumbnail() {}
 
-bool BaseDirectoryEntry::isImagePath() const { return false; }
+BaseDirectoryEntry::EntryType BaseDirectoryEntry::entryType() const {
+  return EntryType::Dir;
+}
 
-bool BaseDirectoryEntry::isArchivePath() const { return false; }
-
-bool DirectoryEntry::isImagePath() const {
-  const QString ext = QFileInfo(m_url.fileName()).suffix().toLower();
+static bool isImageSuffix(const QString &ext) {
   return ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" ||
          ext == "gif" || ext == "pbm" || ext == "pgm" || ext == "ppm" ||
          ext == "xbm" || ext == "xpm" || ext == "svg" || ext == "webp" ||
          ext == "tiff" || ext == "tif" || ext == "ico";
 }
 
-bool DirectoryEntry::isArchivePath() const {
-  const QString ext = QFileInfo(m_url.fileName()).suffix().toLower();
+static bool isArchiveSuffix(const QString &ext) {
 #ifdef USE_QT_PDF
   if (ext == "pdf")
     return true;
@@ -31,6 +29,15 @@ bool DirectoryEntry::isArchivePath() const {
          ext == "txz" || ext == "7z" || ext == "rar" || ext == "gz" ||
          ext == "bz2" || ext == "xz" || ext == "lz" || ext == "lzma" ||
          ext == "zst" || ext == "iso" || ext == "cpio" || ext == "ar";
+}
+
+DirectoryEntry::EntryType DirectoryEntry::entryType() const {
+  const QString ext = QFileInfo(m_url.fileName()).suffix().toLower();
+  if (isImageSuffix(ext))
+    return EntryType::Image;
+  if (isArchiveSuffix(ext))
+    return EntryType::Archive;
+  return EntryType::Dir;
 }
 
 void DirectoryEntry::requestThumbnail() {

@@ -29,8 +29,8 @@ public:
   bool hasThumbnail() const { return !m_thumbnail.isNull(); }
   virtual void requestThumbnail();
 
-  virtual bool isImagePath() const;
-  virtual bool isArchivePath() const;
+  enum class EntryType { Dir, Image, Archive };
+  virtual EntryType entryType() const;
   virtual QString name() const = 0;
 
 signals:
@@ -52,9 +52,8 @@ public:
 
   QUrl url() const { return m_url; }
 
+  EntryType entryType() const override;
   QString name() const override { return m_url.fileName(); }
-  bool isImagePath() const override;
-  bool isArchivePath() const override;
   void requestThumbnail() override;
 
 private:

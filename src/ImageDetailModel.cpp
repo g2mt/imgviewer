@@ -65,7 +65,7 @@ void ImageDetailModel::populate() {
 #endif
     if (entry->isDir())
       continue;
-    else if (!entry->isImagePath())
+    else if (entry->entryType() != BaseDirectoryEntry::EntryType::Image)
       continue;
     else if (!search.isEmpty() &&
              !entry->name().contains(search, Qt::CaseInsensitive))

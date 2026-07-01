@@ -36,7 +36,8 @@ void DirectoryList::populate() {
 
   const auto &entries = m_filter->dirEntries();
   for (const auto &base_entry : entries) {
-    if (base_entry->isDir() || base_entry->isArchivePath()) {
+    if (base_entry->isDir() ||
+        base_entry->entryType() == DirectoryEntry::EntryType::Archive) {
       QSharedPointer<DirectoryEntry> entry =
           qSharedPointerCast<DirectoryEntry>(base_entry);
       QTreeWidgetItem *item = new QTreeWidgetItem(this);

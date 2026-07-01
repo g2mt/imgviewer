@@ -180,7 +180,6 @@ void Filter::requestDirectoryEntries() {
     for (const QFileInfo &info : infos) {
       if (info.fileName() == "." || info.fileName() == "..")
         continue;
-      qDebug() << info.absoluteFilePath();
       auto entry = QSharedPointer<DirectoryEntry>::create(
           QUrl::fromLocalFile(info.absoluteFilePath()));
       entry->m_isDir = info.isDir();
@@ -205,12 +204,16 @@ void Filter::requestDirectoryEntries() {
       m_job, &KIO::ListJob::entries, this, [this](auto, const auto &list) {
         for (const auto &uds : list) {
           const QString name = uds.stringValue(KIO::UDSEntry::UDS_NAME);
-          qDebug() << "zip name" << name;
           if (name.isEmpty() || name == "." || name == "..")
             continue;
-          auto entry = QSharedPointer<DirectoryEntry>::create(
-              m_currentUrl.resolved(name));
+          QUrl entryUrl = m_currentUrl.resolved(name);
           const mode_t mode = uds.numberValue(KIO::UDSEntry::UDS_FILE_TYPE);
+          if (S_ISDIR(mode)) {
+            QString path = entryUrl.path(QUrl::FullyEncoded);
+            if (!path.endsWith(QLatin1Char('/')))
+              entryUrl.setPath(path + QLatin1Char('/'), QUrl::StrictMode);
+          }
+          auto entry = QSharedPointer<DirectoryEntry>::create(entryUrl);
           entry->m_isDir = S_ISDIR(mode);
           m_dirEntries.append(entry);
         }
@@ -288,7 +291,7 @@ void Filter::navigateDirectory(const QSharedPointer<DirectoryEntry> entry) {
 
 #if defined(USE_LIBARCHIVE)
   // Local entry that looks like an archive — extract it to a temp directory
-  if (entry->isArchivePath()) {
+  if (entry->entryType() == DirectoryEntry::EntryType::Archive) {
     auto temp = std::make_unique<ArchiveTemp>();
     if (temp->dir.isValid()) {
       temp->parentUrl = m_currentUrl;
@@ -304,14 +307,13 @@ void Filter::navigateDirectory(const QSharedPointer<DirectoryEntry> entry) {
   }
 #elif defined(USE_KIO)
   // Local entry that looks like an archive — navigate into it via zip:// scheme
-  if (entry->isArchivePath()) {
+  if (entry->entryType() == DirectoryEntry::EntryType::Archive) {
     QUrl archiveUrl(url);
     archiveUrl.setScheme("zip");
     QString path = archiveUrl.path(QUrl::FullyEncoded);
     if (!path.endsWith("/"))
       path += "/";
     archiveUrl.setPath(path, QUrl::StrictMode);
-    qDebug() << archiveUrl;
     m_currentUrl = archiveUrl;
     emit changed();
     return;
