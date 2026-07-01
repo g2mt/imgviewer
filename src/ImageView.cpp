@@ -205,7 +205,8 @@ void ImageView::dragEnterEvent(QDragEnterEvent *event) {
     for (const QUrl &url : event->mimeData()->urls()) {
       if (url.isLocalFile()) {
         QFileInfo fileInfo(url.toLocalFile());
-        auto entry = QSharedPointer<DirectoryEntry>(DirectoryEntry::fromFileInfo(fileInfo));
+        auto entry = QSharedPointer<DirectoryEntry>(
+            DirectoryEntry::fromFileInfo(fileInfo));
         if (!entry)
           continue;
         if (entry->entryType() == DirectoryEntry::EntryType::Image) {

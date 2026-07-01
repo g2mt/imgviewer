@@ -34,8 +34,8 @@ static bool isArchiveSuffix(const QString &ext) {
 
 /** DirectoryEntry factory methods **/
 
-QSharedPointer<DirectoryEntry> DirectoryEntry::fromFileInfo(
-    const QFileInfo &info) {
+QSharedPointer<DirectoryEntry>
+DirectoryEntry::fromFileInfo(const QFileInfo &info) {
   if (info.fileName() == QLatin1String("."))
     return {};
 
@@ -60,8 +60,8 @@ QSharedPointer<DirectoryEntry> DirectoryEntry::fromFileInfo(
 }
 
 #ifdef USE_KIO
-QSharedPointer<DirectoryEntry> DirectoryEntry::fromKio(
-    const KIO::UDSEntry &uds, const QUrl &parentDir) {
+QSharedPointer<DirectoryEntry> DirectoryEntry::fromKio(const KIO::UDSEntry &uds,
+                                                       const QUrl &parentDir) {
   const QString name = uds.stringValue(KIO::UDSEntry::UDS_NAME);
   if (name.isEmpty() || name == QLatin1String(".") ||
       name == QLatin1String(".."))

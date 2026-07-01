@@ -196,15 +196,15 @@ void Filter::requestDirectoryEntries() {
   m_job = KIO::listDir(m_currentUrl, KIO::HideProgressInfo);
   m_job->setParent(this);
 
-  QObject::connect(
-      m_job, &KIO::ListJob::entries, this, [this](auto, const auto &list) {
-        for (const auto &uds : list) {
-          auto entry = DirectoryEntry::fromKio(uds, m_currentUrl);
-          if (!entry)
-            continue;
-          m_dirEntries.append(entry);
-        }
-      });
+  QObject::connect(m_job, &KIO::ListJob::entries, this,
+                   [this](auto, const auto &list) {
+                     for (const auto &uds : list) {
+                       auto entry = DirectoryEntry::fromKio(uds, m_currentUrl);
+                       if (!entry)
+                         continue;
+                       m_dirEntries.append(entry);
+                     }
+                   });
   QObject::connect(m_job, &KIO::ListJob::result, this, [this](auto...) {
     m_job = nullptr;
     emit dirEntriesLoaded();
