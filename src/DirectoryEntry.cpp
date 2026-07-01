@@ -1,11 +1,12 @@
 #include <imgviewer/DirectoryEntry.h>
 
-#ifdef USE_KIO
-#include <KIO/StoredTransferJob>
-#endif
 #include <QBuffer>
 #include <QFileInfo>
 #include <QImageReader>
+#ifdef USE_KIO
+#include <KIO/ListJob>
+#include <KIO/StoredTransferJob>
+#endif
 
 void BaseDirectoryEntry::requestThumbnail() {}
 
@@ -31,13 +32,59 @@ static bool isArchiveSuffix(const QString &ext) {
          ext == "zst" || ext == "iso" || ext == "cpio" || ext == "ar";
 }
 
+/** DirectoryEntry factory methods **/
+
+DirectoryEntry *DirectoryEntry::fromFileInfo(const QFileInfo &info,
+                                             QObject *parent) {
+  if (info.fileName() == QLatin1String("."))
+    return nullptr;
+
+  const QString ext = info.suffix().toLower();
+  EntryType type;
+  if (info.isDir())
+    type = EntryType::Dir;
+  else if (isImageSuffix(ext))
+    type = EntryType::Image;
+  else if (isArchiveSuffix(ext))
+    type = EntryType::Archive;
+  else
+    return nullptr;
+
+  auto *entry = new DirectoryEntry(parent);
+  entry->m_url = QUrl::fromLocalFile(info.absoluteFilePath());
+  entry->m_name = info.fileName();
+  entry->m_entryType = type;
+  entry->m_birthTime = info.birthTime();
+  entry->m_lastModified = info.lastModified();
+  return entry;
+}
+
+#ifdef USE_KIO
+DirectoryEntry *DirectoryEntry::fromKio(const KIO::UDSEntry &uds,
+                                        const QUrl &parentDir,
+                                        QObject *parent) {
+  const QString name = uds.stringValue(KIO::UDSEntry::UDS_NAME);
+  if (name.isEmpty() || name == QLatin1String(".") ||
+      name == QLatin1String(".."))
+    return nullptr;
+
+  auto *entry = new DirectoryEntry(parent);
+  entry->m_url = parentDir.resolved(name);
+  entry->m_name = name;
+  entry->m_entryType = S_ISDIR(uds.numberValue(KIO::UDSEntry::UDS_FILE_TYPE))
+                           ? EntryType::Dir
+                           : EntryType::Image;
+  if (entry->m_entryType == EntryType::Dir) {
+    QString path = entry->m_url.path(QUrl::FullyEncoded);
+    if (!path.endsWith(QLatin1Char('/')))
+      entry->m_url.setPath(path + QLatin1Char('/'), QUrl::StrictMode);
+  }
+  return entry;
+}
+#endif
+
 DirectoryEntry::EntryType DirectoryEntry::entryType() const {
-  const QString ext = QFileInfo(m_url.fileName()).suffix().toLower();
-  if (isImageSuffix(ext))
-    return EntryType::Image;
-  if (isArchiveSuffix(ext))
-    return EntryType::Archive;
-  return EntryType::Dir;
+  return m_entryType;
 }
 
 void DirectoryEntry::requestThumbnail() {
@@ -61,6 +108,7 @@ void DirectoryEntry::requestThumbnail() {
   if (!m_thumbnail.isNull())
     emit thumbnailReady();
 #elif defined(USE_KIO)
+  qDebug() << "load url:" << m_url;
   auto *job = KIO::storedGet(m_url, KIO::NoReload);
   connect(job, &KIO::StoredTransferJob::result, this, [this, job]() {
     QImage image;

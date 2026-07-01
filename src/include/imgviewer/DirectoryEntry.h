@@ -1,11 +1,18 @@
 #pragma once
 #include <QDateTime>
+#include <QFileInfo>
 #include <QImage>
 #include <QMetaType>
 #include <QObject>
 #include <QPixmap>
 #include <QUrl>
 #include <qsharedpointer.h>
+
+#ifdef USE_KIO
+namespace KIO {
+class UDSEntry;
+}
+#endif
 
 #ifdef USE_QT_PDF
 #include <QPdfDocument>
@@ -21,7 +28,6 @@ public:
 
   explicit BaseDirectoryEntry(QObject *parent = nullptr) : QObject(parent) {}
 
-  bool isDir() const { return m_isDir; }
   QDateTime birthTime() const { return m_birthTime; }
   QDateTime lastModified() const { return m_lastModified; }
 
@@ -37,7 +43,6 @@ signals:
   void thumbnailReady();
 
 protected:
-  bool m_isDir = false;
   QDateTime m_birthTime;
   QDateTime m_lastModified;
   QPixmap m_thumbnail;
@@ -47,17 +52,39 @@ protected:
 class DirectoryEntry : public BaseDirectoryEntry {
   Q_OBJECT
 public:
-  explicit DirectoryEntry(const QUrl &url, QObject *parent = nullptr)
-      : BaseDirectoryEntry(parent), m_url(url) {}
+  static DirectoryEntry *fromFileInfo(const QFileInfo &info,
+                                        QObject *parent = nullptr);
+#ifdef USE_KIO
+  static DirectoryEntry *fromKio(const KIO::UDSEntry &uds,
+                                  const QUrl &parentDir,
+                                  QObject *parent = nullptr);
+#endif
 
   QUrl url() const { return m_url; }
 
   EntryType entryType() const override;
-  QString name() const override { return m_url.fileName(); }
+  QString name() const override { return m_name; }
   void requestThumbnail() override;
 
-private:
+protected:
+  explicit DirectoryEntry(QObject *parent = nullptr) : BaseDirectoryEntry(parent) {}
+
   QUrl m_url;
+  QString m_name;
+  EntryType m_entryType = EntryType::Dir;
+};
+
+class UpDirectoryEntry : public DirectoryEntry {
+  Q_OBJECT
+public:
+  explicit UpDirectoryEntry(QObject *parent = nullptr)
+      : DirectoryEntry(parent) {
+    m_url = QUrl(QStringLiteral(".."));
+    m_name = QStringLiteral("..");
+    m_entryType = EntryType::Dir;
+  }
+
+  QString name() const override { return QStringLiteral(".."); }
 };
 
 #ifdef USE_QT_PDF

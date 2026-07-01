@@ -63,7 +63,7 @@ void ImageDetailModel::populate() {
       continue;
     }
 #endif
-    if (entry->isDir())
+    if (entry->entryType() == BaseDirectoryEntry::EntryType::Dir)
       continue;
     else if (entry->entryType() != BaseDirectoryEntry::EntryType::Image)
       continue;

@@ -27,8 +27,7 @@ DirectoryList::DirectoryList(Filter *filter, QWidget *parent)
 void DirectoryList::populate() {
   clear();
 
-  auto upEntry =
-      QSharedPointer<DirectoryEntry>::create(QUrl(QStringLiteral("..")));
+  auto upEntry = QSharedPointer<DirectoryEntry>(new UpDirectoryEntry(this));
   QTreeWidgetItem *upItem = new QTreeWidgetItem(this);
   upItem->setIcon(0, QIcon::fromTheme("go-up"));
   upItem->setText(1, "..");
@@ -36,13 +35,13 @@ void DirectoryList::populate() {
 
   const auto &entries = m_filter->dirEntries();
   for (const auto &base_entry : entries) {
-    if (base_entry->isDir() ||
+    if (base_entry->entryType() == BaseDirectoryEntry::EntryType::Dir ||
         base_entry->entryType() == DirectoryEntry::EntryType::Archive) {
       QSharedPointer<DirectoryEntry> entry =
           qSharedPointerCast<DirectoryEntry>(base_entry);
       QTreeWidgetItem *item = new QTreeWidgetItem(this);
       item->setIcon(
-          0, base_entry->isDir()
+          0, base_entry->entryType() == BaseDirectoryEntry::EntryType::Dir
                  ? QIcon::fromTheme("folder")
                  : QIcon::fromTheme("application-x-archive",
                                     QIcon::fromTheme("package-x-generic")));

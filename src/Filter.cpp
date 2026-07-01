@@ -178,13 +178,10 @@ void Filter::requestDirectoryEntries() {
         QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
     m_dirEntries.reserve(infos.size());
     for (const QFileInfo &info : infos) {
-      if (info.fileName() == "." || info.fileName() == "..")
+      auto entry =
+          QSharedPointer<DirectoryEntry>(DirectoryEntry::fromFileInfo(info));
+      if (!entry)
         continue;
-      auto entry = QSharedPointer<DirectoryEntry>::create(
-          QUrl::fromLocalFile(info.absoluteFilePath()));
-      entry->m_isDir = info.isDir();
-      entry->m_birthTime = info.birthTime();
-      entry->m_lastModified = info.lastModified();
       m_dirEntries.append(entry);
     }
     emit dirEntriesLoaded();
@@ -203,18 +200,10 @@ void Filter::requestDirectoryEntries() {
   QObject::connect(
       m_job, &KIO::ListJob::entries, this, [this](auto, const auto &list) {
         for (const auto &uds : list) {
-          const QString name = uds.stringValue(KIO::UDSEntry::UDS_NAME);
-          if (name.isEmpty() || name == "." || name == "..")
+          auto entry =
+              QSharedPointer<DirectoryEntry>(DirectoryEntry::fromKio(uds, m_currentUrl));
+          if (!entry)
             continue;
-          QUrl entryUrl = m_currentUrl.resolved(name);
-          const mode_t mode = uds.numberValue(KIO::UDSEntry::UDS_FILE_TYPE);
-          if (S_ISDIR(mode)) {
-            QString path = entryUrl.path(QUrl::FullyEncoded);
-            if (!path.endsWith(QLatin1Char('/')))
-              entryUrl.setPath(path + QLatin1Char('/'), QUrl::StrictMode);
-          }
-          auto entry = QSharedPointer<DirectoryEntry>::create(entryUrl);
-          entry->m_isDir = S_ISDIR(mode);
           m_dirEntries.append(entry);
         }
       });
@@ -229,8 +218,7 @@ void Filter::requestDirectoryEntries() {
 void Filter::navigateDirectory(const QSharedPointer<DirectoryEntry> entry) {
   const QUrl &url = entry->url();
 
-  // Handle ".." — navigate to parent directory
-  if (url.toString() == QLatin1String("..")) {
+  if (qobject_cast<UpDirectoryEntry *>(entry.data())) {
 #if defined(USE_LIBARCHIVE)
     if (m_archiveTemp) {
       QUrl parentUrl = m_currentUrl.resolved(QUrl(".."));
@@ -311,9 +299,8 @@ void Filter::navigateDirectory(const QSharedPointer<DirectoryEntry> entry) {
     QUrl archiveUrl(url);
     archiveUrl.setScheme("zip");
     QString path = archiveUrl.path(QUrl::FullyEncoded);
-    if (!path.endsWith("/"))
-      path += "/";
-    archiveUrl.setPath(path, QUrl::StrictMode);
+    if (!path.endsWith(QLatin1Char('/')))
+      archiveUrl.setPath(path + QLatin1Char('/'), QUrl::StrictMode);
     m_currentUrl = archiveUrl;
     emit changed();
     return;
