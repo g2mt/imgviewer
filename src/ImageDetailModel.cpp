@@ -33,7 +33,7 @@ QVariant ImageDetailModel::data(const QModelIndex &index, int role) const {
     if (auto *pdfEntry = qobject_cast<PdfDirectoryEntry *>(entry.data()))
       return QVariant::fromValue(pdfEntry);
 #endif
-    return qobject_cast<DirectoryEntry *>(entry.data())->url().toString();
+    return qobject_cast<DirectoryEntry *>(entry.data())->url();
   }
   case ThumbnailRole: {
     if (entry->hasThumbnail())

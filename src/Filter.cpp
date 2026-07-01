@@ -180,6 +180,7 @@ void Filter::requestDirectoryEntries() {
     for (const QFileInfo &info : infos) {
       if (info.fileName() == "." || info.fileName() == "..")
         continue;
+      qDebug() << info.absoluteFilePath();
       auto entry = QSharedPointer<DirectoryEntry>::create(
           QUrl::fromLocalFile(info.absoluteFilePath()));
       entry->m_isDir = info.isDir();
@@ -204,6 +205,7 @@ void Filter::requestDirectoryEntries() {
       m_job, &KIO::ListJob::entries, this, [this](auto, const auto &list) {
         for (const auto &uds : list) {
           const QString name = uds.stringValue(KIO::UDSEntry::UDS_NAME);
+          qDebug() << "zip name" << name;
           if (name.isEmpty() || name == "." || name == "..")
             continue;
           auto entry = QSharedPointer<DirectoryEntry>::create(
@@ -304,9 +306,12 @@ void Filter::navigateDirectory(const QSharedPointer<DirectoryEntry> entry) {
   // Local entry that looks like an archive — navigate into it via zip:// scheme
   if (entry->isArchivePath()) {
     QUrl archiveUrl(url);
-    archiveUrl.setScheme(QStringLiteral("zip"));
-    if (!archiveUrl.path().endsWith("/"))
-      archiveUrl.setPath(archiveUrl.path() + "/");
+    archiveUrl.setScheme("zip");
+    QString path = archiveUrl.path(QUrl::FullyEncoded);
+    if (!path.endsWith("/"))
+      path += "/";
+    archiveUrl.setPath(path, QUrl::StrictMode);
+    qDebug() << archiveUrl;
     m_currentUrl = archiveUrl;
     emit changed();
     return;

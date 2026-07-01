@@ -207,7 +207,7 @@ void MainWindow::setupRightSplitter(QSplitter *horizontalSplitter) {
               m_imageView->setImage(pdfEntry->renderPage());
             else
 #endif
-              m_imageView->setImage(QUrl(data.toString()));
+              m_imageView->setImage(*data.value<QUrl *>());
           });
   connect(m_imageView, &ImageView::goForward, imageList,
           &ImageDetailList::forward);

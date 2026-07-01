@@ -57,7 +57,7 @@ void DirectoryEntry::requestThumbnail() {
   auto *job = KIO::storedGet(m_url, KIO::NoReload);
   connect(job, &KIO::StoredTransferJob::result, this, [this, job]() {
     QImage image;
-    if (!job->error()) {
+    if (job->error() == 0) {
       const QByteArray bytes = job->data();
       QBuffer buffer;
       buffer.setData(bytes);
@@ -65,6 +65,9 @@ void DirectoryEntry::requestThumbnail() {
       QImageReader reader(&buffer);
       reader.setAutoTransform(true);
       image = reader.read();
+    } else {
+      qDebug() << "error loading image:" << job->errorText();
+      return;
     }
     if (!image.isNull()) {
       image = image.scaled(kThumbnailSize, kThumbnailSize, Qt::KeepAspectRatio,
