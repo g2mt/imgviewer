@@ -34,10 +34,10 @@ static bool isArchiveSuffix(const QString &ext) {
 
 /** DirectoryEntry factory methods **/
 
-DirectoryEntry *DirectoryEntry::fromFileInfo(const QFileInfo &info,
-                                             QObject *parent) {
+QSharedPointer<DirectoryEntry> DirectoryEntry::fromFileInfo(
+    const QFileInfo &info) {
   if (info.fileName() == QLatin1String("."))
-    return nullptr;
+    return {};
 
   const QString ext = info.suffix().toLower();
   EntryType type;
@@ -48,27 +48,26 @@ DirectoryEntry *DirectoryEntry::fromFileInfo(const QFileInfo &info,
   else if (isArchiveSuffix(ext))
     type = EntryType::Archive;
   else
-    return nullptr;
+    return {};
 
-  auto *entry = new DirectoryEntry(parent);
+  auto *entry = new DirectoryEntry();
   entry->m_url = QUrl::fromLocalFile(info.absoluteFilePath());
   entry->m_name = info.fileName();
   entry->m_entryType = type;
   entry->m_birthTime = info.birthTime();
   entry->m_lastModified = info.lastModified();
-  return entry;
+  return QSharedPointer<DirectoryEntry>(entry);
 }
 
 #ifdef USE_KIO
-DirectoryEntry *DirectoryEntry::fromKio(const KIO::UDSEntry &uds,
-                                        const QUrl &parentDir,
-                                        QObject *parent) {
+QSharedPointer<DirectoryEntry> DirectoryEntry::fromKio(
+    const KIO::UDSEntry &uds, const QUrl &parentDir) {
   const QString name = uds.stringValue(KIO::UDSEntry::UDS_NAME);
   if (name.isEmpty() || name == QLatin1String(".") ||
       name == QLatin1String(".."))
-    return nullptr;
+    return {};
 
-  auto *entry = new DirectoryEntry(parent);
+  auto *entry = new DirectoryEntry();
   entry->m_url = parentDir.resolved(name);
   entry->m_name = name;
   entry->m_entryType = S_ISDIR(uds.numberValue(KIO::UDSEntry::UDS_FILE_TYPE))
@@ -79,7 +78,7 @@ DirectoryEntry *DirectoryEntry::fromKio(const KIO::UDSEntry &uds,
     if (!path.endsWith(QLatin1Char('/')))
       entry->m_url.setPath(path + QLatin1Char('/'), QUrl::StrictMode);
   }
-  return entry;
+  return QSharedPointer<DirectoryEntry>(entry);
 }
 #endif
 

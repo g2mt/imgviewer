@@ -26,8 +26,6 @@ class BaseDirectoryEntry : public QObject {
 public:
   static constexpr int kThumbnailSize = 96;
 
-  explicit BaseDirectoryEntry(QObject *parent = nullptr) : QObject(parent) {}
-
   QDateTime birthTime() const { return m_birthTime; }
   QDateTime lastModified() const { return m_lastModified; }
 
@@ -43,6 +41,8 @@ signals:
   void thumbnailReady();
 
 protected:
+  explicit BaseDirectoryEntry(QObject *parent = nullptr) : QObject(parent) {}
+
   QDateTime m_birthTime;
   QDateTime m_lastModified;
   QPixmap m_thumbnail;
@@ -52,22 +52,21 @@ protected:
 class DirectoryEntry : public BaseDirectoryEntry {
   Q_OBJECT
 public:
-  static DirectoryEntry *fromFileInfo(const QFileInfo &info,
-                                        QObject *parent = nullptr);
+  // Ownership is managed by QSharedPointer, no parent argument needed.
+  static QSharedPointer<DirectoryEntry> fromFileInfo(const QFileInfo &info);
 #ifdef USE_KIO
-  static DirectoryEntry *fromKio(const KIO::UDSEntry &uds,
-                                  const QUrl &parentDir,
-                                  QObject *parent = nullptr);
+  static QSharedPointer<DirectoryEntry> fromKio(const KIO::UDSEntry &uds,
+                                                const QUrl &parentDir);
 #endif
 
   QUrl url() const { return m_url; }
-
   EntryType entryType() const override;
   QString name() const override { return m_name; }
   void requestThumbnail() override;
 
 protected:
-  explicit DirectoryEntry(QObject *parent = nullptr) : BaseDirectoryEntry(parent) {}
+  explicit DirectoryEntry(QObject *parent = nullptr)
+      : BaseDirectoryEntry(parent) {}
 
   QUrl m_url;
   QString m_name;
@@ -77,29 +76,35 @@ protected:
 class UpDirectoryEntry : public DirectoryEntry {
   Q_OBJECT
 public:
-  explicit UpDirectoryEntry(QObject *parent = nullptr)
-      : DirectoryEntry(parent) {
+  // Ownership is managed by QSharedPointer, no parent argument needed.
+  static QSharedPointer<UpDirectoryEntry> create() {
+    auto *entry = new UpDirectoryEntry();
+    return QSharedPointer<UpDirectoryEntry>(entry);
+  }
+
+  QString name() const override { return QStringLiteral(".."); }
+
+private:
+  explicit UpDirectoryEntry() : DirectoryEntry() {
     m_url = QUrl(QStringLiteral(".."));
     m_name = QStringLiteral("..");
     m_entryType = EntryType::Dir;
   }
-
-  QString name() const override { return QStringLiteral(".."); }
 };
 
 #ifdef USE_QT_PDF
 class PdfDirectoryEntry : public BaseDirectoryEntry {
   Q_OBJECT
 public:
-  explicit PdfDirectoryEntry(QObject *parent = nullptr)
-      : BaseDirectoryEntry(parent) {}
+  // Ownership is managed by QSharedPointer, no parent argument needed.
+  static QSharedPointer<PdfDirectoryEntry>
+  create(int pageIndex, const QSharedPointer<QPdfDocument> &document) {
+    auto *entry = new PdfDirectoryEntry(pageIndex, document);
+    return QSharedPointer<PdfDirectoryEntry>(entry);
+  }
 
   int pageIndex() const { return m_index; }
-  void setPageIndex(int i) { m_index = i; }
   QSharedPointer<QPdfDocument> pdfDocument() const { return m_document; }
-  void setPdfDocument(const QSharedPointer<QPdfDocument> &doc) {
-    m_document = doc;
-  }
 
   QString name() const override {
     return QStringLiteral("Page %1").arg(m_index + 1, 2, 10, QLatin1Char('0'));
@@ -108,8 +113,14 @@ public:
   QImage renderPage() const;
   void requestThumbnail() override;
 
+  EntryType entryType() const override { return EntryType::Image; }
+
 private:
-  int m_index = 0;
+  explicit PdfDirectoryEntry(int pageIndex,
+                             const QSharedPointer<QPdfDocument> &document,
+                             QObject *parent = nullptr)
+      : BaseDirectoryEntry(parent), m_index(pageIndex), m_document(document) {}
+  int m_index;
   QSharedPointer<QPdfDocument> m_document;
 };
 #endif

@@ -178,8 +178,7 @@ void Filter::requestDirectoryEntries() {
         QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
     m_dirEntries.reserve(infos.size());
     for (const QFileInfo &info : infos) {
-      auto entry =
-          QSharedPointer<DirectoryEntry>(DirectoryEntry::fromFileInfo(info));
+      auto entry = DirectoryEntry::fromFileInfo(info);
       if (!entry)
         continue;
       m_dirEntries.append(entry);
@@ -200,8 +199,7 @@ void Filter::requestDirectoryEntries() {
   QObject::connect(
       m_job, &KIO::ListJob::entries, this, [this](auto, const auto &list) {
         for (const auto &uds : list) {
-          auto entry =
-              QSharedPointer<DirectoryEntry>(DirectoryEntry::fromKio(uds, m_currentUrl));
+          auto entry = DirectoryEntry::fromKio(uds, m_currentUrl);
           if (!entry)
             continue;
           m_dirEntries.append(entry);
@@ -325,10 +323,7 @@ void Filter::requestPdfEntries() {
   m_dirEntries.reserve(pageCount);
 
   for (int i = 0; i < pageCount; ++i) {
-    auto pdfEntry = QSharedPointer<PdfDirectoryEntry>::create();
-    pdfEntry->setPageIndex(i);
-    pdfEntry->setPdfDocument(pdfDocument);
-    m_dirEntries.append(pdfEntry);
+    m_dirEntries.append(PdfDirectoryEntry::create(i, pdfDocument));
   }
 }
 

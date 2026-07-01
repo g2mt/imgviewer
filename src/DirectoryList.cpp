@@ -27,7 +27,7 @@ DirectoryList::DirectoryList(Filter *filter, QWidget *parent)
 void DirectoryList::populate() {
   clear();
 
-  auto upEntry = QSharedPointer<DirectoryEntry>(new UpDirectoryEntry(this));
+  auto upEntry = QSharedPointer<DirectoryEntry>(UpDirectoryEntry::create());
   QTreeWidgetItem *upItem = new QTreeWidgetItem(this);
   upItem->setIcon(0, QIcon::fromTheme("go-up"));
   upItem->setText(1, "..");
