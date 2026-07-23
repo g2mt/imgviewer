@@ -108,7 +108,7 @@ void DirectoryEntry::requestThumbnail() {
     emit thumbnailReady();
 #elif defined(USE_KIO)
   qDebug() << "load url:" << m_url;
-  auto *job = KIO::storedGet(m_url, KIO::NoReload);
+  auto *job = KIO::storedGet(m_url, KIO::NoReload, KIO::HideProgressInfo);
   connect(job, &KIO::StoredTransferJob::result, this, [this, job]() {
     QImage image;
     if (job->error() == 0) {
