@@ -12,12 +12,16 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPinchGesture>
+#ifdef USE_QT_PDF
+#include <QPdfDocumentRenderOptions>
+#endif
 #include <QResizeEvent>
 #include <QTransform>
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QWheelEvent>
 #include <algorithm>
+#include <cmath>
 #include <imgviewer/Filter.h>
 #include <imgviewer/ImageView.h>
 #include <qevent.h>
@@ -28,6 +32,11 @@ namespace {
 constexpr float kZoomStepPerNotch = 1.15f;
 constexpr float kMinZoom = 0.01f;
 constexpr float kMaxZoom = 100.0f;
+#ifdef USE_QT_PDF
+constexpr int kPdfRenderDelayMs = 100;
+constexpr int kMaxPdfRenderDimension = 16384;
+constexpr qint64 kMaxPdfRenderPixels = 32 * 1024 * 1024;
+#endif
 } // namespace
 
 ImageView::ImageView(Filter *filter, QWidget *parent)
@@ -53,11 +62,23 @@ ImageView::ImageView(Filter *filter, QWidget *parent)
       m_cursorHidden = true;
     }
   });
+
+#ifdef USE_QT_PDF
+  m_pdfRenderTimer = new QTimer(this);
+  m_pdfRenderTimer->setSingleShot(true);
+  m_pdfRenderTimer->setInterval(kPdfRenderDelayMs);
+  connect(m_pdfRenderTimer, &QTimer::timeout, this,
+          &ImageView::rerenderPdfPage);
+#endif
 }
 
 void ImageView::setImage(const QUrl &url) {
+#ifdef USE_QT_PDF
+  clearPdfPage();
+#endif
   m_originalPixmap = {};
   m_pixmap = {};
+  m_imageSize = {};
 
 #ifdef USE_LIBARCHIVE
   if (!url.isLocalFile())
@@ -65,6 +86,7 @@ void ImageView::setImage(const QUrl &url) {
   QImageReader reader(url.toLocalFile());
   reader.setAutoTransform(true);
   m_originalPixmap = QPixmap::fromImage(reader.read());
+  m_imageSize = m_originalPixmap.size();
   applyFlip();
   resetCamera();
   updateImageDisplay();
@@ -93,6 +115,7 @@ void ImageView::setImage(const QUrl &url) {
     QImageReader reader(&buffer);
     reader.setAutoTransform(true);
     m_originalPixmap = QPixmap::fromImage(reader.read());
+    m_imageSize = m_originalPixmap.size();
     applyFlip();
     resetCamera();
     updateImageDisplay();
@@ -102,12 +125,100 @@ void ImageView::setImage(const QUrl &url) {
 }
 
 void ImageView::setImage(const QImage &image) {
+#ifdef USE_QT_PDF
+  clearPdfPage();
+#endif
   m_originalPixmap = QPixmap::fromImage(image);
   m_pixmap = {};
+  m_imageSize = m_originalPixmap.size();
   applyFlip();
   resetCamera();
   updateImageDisplay();
 }
+
+#ifdef USE_QT_PDF
+void ImageView::setPdfPage(const QSharedPointer<QPdfDocument> &document,
+                           int pageIndex) {
+#ifdef USE_KIO
+  if (m_currentJob) {
+    KIO::StoredTransferJob *oldJob = m_currentJob;
+    m_currentJob = nullptr;
+    oldJob->kill();
+  }
+#endif
+  clearPdfPage();
+  m_originalPixmap = {};
+  m_pixmap = {};
+
+  if (!document || document->status() != QPdfDocument::Status::Ready ||
+      pageIndex < 0 || pageIndex >= document->pageCount()) {
+    m_imageSize = {};
+    resetCamera();
+    updateImageDisplay();
+    return;
+  }
+
+  m_pdfDocument = document;
+  m_pdfPageIndex = pageIndex;
+  m_imageSize = document->pagePointSize(pageIndex);
+  if (m_imageSize.isEmpty())
+    m_imageSize = QSizeF(1224, 1584);
+
+  const float fitZoom =
+      m_imageSize.width() > 0.0 ? width() / m_imageSize.width() : 1.0f;
+  m_camera.zoom = fitZoom > 0.0f ? fitZoom : 1.0f;
+  m_camera.imageTarget = QPointF(0.0, 0.0);
+  m_camera.offset = QPointF(0.0, 0.0);
+  rerenderPdfPage();
+  updateImageDisplay();
+}
+
+void ImageView::clearPdfPage() {
+  if (m_pdfRenderTimer)
+    m_pdfRenderTimer->stop();
+  m_pdfDocument.clear();
+  m_pdfPageIndex = -1;
+  m_pdfRenderScale = 0.0f;
+}
+
+void ImageView::schedulePdfRender() {
+  if (m_pdfDocument)
+    m_pdfRenderTimer->start();
+}
+
+void ImageView::rerenderPdfPage() {
+  if (!m_pdfDocument ||
+      m_pdfDocument->status() != QPdfDocument::Status::Ready ||
+      m_imageSize.isEmpty())
+    return;
+
+  float scale = std::max(1.0f, (float)(m_camera.zoom * devicePixelRatioF()));
+  scale = std::min(scale, kMaxPdfRenderDimension /
+                              float(std::max(m_imageSize.width(),
+                                             m_imageSize.height())));
+  const double pagePixels = m_imageSize.width() * m_imageSize.height();
+  if (pagePixels > 0.0)
+    scale = std::min(
+        scale, float(std::sqrt(double(kMaxPdfRenderPixels) / pagePixels)));
+  if (m_pdfRenderScale > 0.0f && scale <= m_pdfRenderScale * 1.1f)
+    return;
+
+  const QSize renderSize = (m_imageSize * scale).toSize();
+  if (renderSize.isEmpty())
+    return;
+
+  QPdfDocumentRenderOptions options;
+  QImage image =
+      m_pdfDocument->render(m_pdfPageIndex, renderSize, options);
+  if (image.isNull())
+    return;
+
+  m_originalPixmap = QPixmap::fromImage(image);
+  m_pdfRenderScale = scale;
+  applyFlip();
+  updateImageDisplay();
+}
+#endif
 
 void ImageView::applyFlip() {
   QTransform t;
@@ -130,8 +241,9 @@ void ImageView::resetCamera() {
   // Fit the image to the widget width and center it vertically. The image's
   // top-left corner (0, 0) is taken as the camera target so `offset` is the
   // on-screen position of that corner.
-  const float fitZoom =
-      m_pixmap.width() > 0 ? float(width()) / float(m_pixmap.width()) : 1.0f;
+  const float fitZoom = m_imageSize.width() > 0.0
+                            ? float(width()) / float(m_imageSize.width())
+                            : 1.0f;
   m_camera.zoom = fitZoom > 0.0f ? fitZoom : 1.0f;
   m_camera.imageTarget = QPointF(0.0, 0.0);
   m_camera.offset = QPointF(0.0, 0.0);
@@ -171,8 +283,8 @@ void ImageView::paintEvent(QPaintEvent *event) {
 
   // The destination rectangle is the image's bounds mapped through the camera.
   const QPointF topLeft = m_camera.imageToScreen(QPointF(0.0, 0.0));
-  const QSizeF dstSize(m_pixmap.width() * m_camera.zoom,
-                       m_pixmap.height() * m_camera.zoom);
+  const QSizeF dstSize(m_imageSize.width() * m_camera.zoom,
+                       m_imageSize.height() * m_camera.zoom);
   painter.drawPixmap(QRectF(topLeft, dstSize), m_pixmap,
                      QRectF(m_pixmap.rect()));
 }
@@ -193,6 +305,9 @@ bool ImageView::event(QEvent *event) {
                                  kMinZoom, kMaxZoom);
       m_camera.imageTarget = imagePointUnderCursor;
       m_camera.offset = cursor;
+#ifdef USE_QT_PDF
+      schedulePdfRender();
+#endif
       update();
       return true;
     }
@@ -298,6 +413,9 @@ void ImageView::wheelEvent(QWheelEvent *event) {
 
     m_camera.imageTarget = imagePointUnderCursor;
     m_camera.offset = cursor;
+#ifdef USE_QT_PDF
+    schedulePdfRender();
+#endif
   } else {
     const QPointF delta = event->angleDelta() / 8.0;
     m_camera.offset += delta;

@@ -4,8 +4,14 @@
 #include <QPixmap>
 #include <QPoint>
 #include <QPointF>
+#include <QSharedPointer>
+#include <QSizeF>
 #include <QString>
 #include <QTimer>
+
+#ifdef USE_QT_PDF
+#include <QPdfDocument>
+#endif
 
 class Filter;
 #ifdef USE_KIO
@@ -40,6 +46,9 @@ public:
   ImageView(Filter *filter, QWidget *parent = nullptr);
   void setImage(const QUrl &url);
   void setImage(const QImage &image);
+#ifdef USE_QT_PDF
+  void setPdfPage(const QSharedPointer<QPdfDocument> &document, int pageIndex);
+#endif
   void setFlipHorizontal(bool flip);
   void setFlipVertical(bool flip);
 
@@ -67,11 +76,17 @@ private:
   void resetCamera();
   // Rebuild m_pixmap from m_originalPixmap with current flip flags.
   void applyFlip();
+#ifdef USE_QT_PDF
+  void clearPdfPage();
+  void schedulePdfRender();
+  void rerenderPdfPage();
+#endif
 
   Filter *m_filter;
   QLabel *m_placeholder;
   QPixmap m_originalPixmap;
   QPixmap m_pixmap;
+  QSizeF m_imageSize;
   Camera m_camera;
   QPointF m_lastMousePos;
   QTimer *m_cursorTimer;
@@ -81,5 +96,11 @@ private:
   bool m_flipV = false;
 #ifdef USE_KIO
   KIO::StoredTransferJob *m_currentJob = nullptr;
+#endif
+#ifdef USE_QT_PDF
+  QSharedPointer<QPdfDocument> m_pdfDocument;
+  QTimer *m_pdfRenderTimer;
+  int m_pdfPageIndex = -1;
+  float m_pdfRenderScale = 0.0f;
 #endif
 };

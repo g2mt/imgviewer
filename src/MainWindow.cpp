@@ -204,7 +204,8 @@ void MainWindow::setupRightSplitter(QSplitter *horizontalSplitter) {
           [this](const QVariant &data) {
 #ifdef USE_QT_PDF
             if (auto *pdfEntry = data.value<PdfDirectoryEntry *>())
-              m_imageView->setImage(pdfEntry->renderPage());
+              m_imageView->setPdfPage(pdfEntry->pdfDocument(),
+                                      pdfEntry->pageIndex());
             else
 #endif
               m_imageView->setImage(data.value<QUrl>());
