@@ -22,10 +22,6 @@ static bool isImageSuffix(const QString &ext) {
 }
 
 static bool isArchiveSuffix(const QString &ext) {
-#ifdef USE_QT_PDF
-  if (ext == "pdf")
-    return true;
-#endif
   return ext == "zip" || ext == "tar" || ext == "tgz" || ext == "tbz2" ||
          ext == "txz" || ext == "7z" || ext == "rar" || ext == "gz" ||
          ext == "bz2" || ext == "xz" || ext == "lz" || ext == "lzma" ||
@@ -45,6 +41,10 @@ DirectoryEntry::fromFileInfo(const QFileInfo &info) {
     type = EntryType::Dir;
   else if (isImageSuffix(ext))
     type = EntryType::Image;
+#ifdef USE_QT_PDF
+  else if (ext == "pdf")
+    type = EntryType::Pdf;
+#endif
   else if (isArchiveSuffix(ext))
     type = EntryType::Archive;
   else
@@ -70,9 +70,15 @@ QSharedPointer<DirectoryEntry> DirectoryEntry::fromKio(const KIO::UDSEntry &uds,
   auto *entry = new DirectoryEntry();
   entry->m_url = parentDir.resolved(name);
   entry->m_name = name;
-  entry->m_entryType = S_ISDIR(uds.numberValue(KIO::UDSEntry::UDS_FILE_TYPE))
-                           ? EntryType::Dir
-                           : EntryType::Image;
+  if (S_ISDIR(uds.numberValue(KIO::UDSEntry::UDS_FILE_TYPE)))
+    entry->m_entryType = EntryType::Dir;
+#ifdef USE_QT_PDF
+  else if (QFileInfo(name).suffix().compare(QLatin1String("pdf"),
+                       Qt::CaseInsensitive) == 0)
+    entry->m_entryType = EntryType::Pdf;
+#endif
+  else
+    entry->m_entryType = EntryType::Image;
   if (entry->m_entryType == EntryType::Dir) {
     QString path = entry->m_url.path(QUrl::FullyEncoded);
     if (!path.endsWith(QLatin1Char('/')))

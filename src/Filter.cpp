@@ -156,6 +156,15 @@ bool Filter::extractArchive(const QString &archivePath) {
 void Filter::requestDirectoryEntries() {
   m_dirEntries.clear();
 
+#if defined(USE_KIO) && defined(USE_QT_PDF)
+  if (m_pdfJob) {
+    auto *oldJob = m_pdfJob;
+    m_pdfJob = nullptr;
+    oldJob->kill();
+  }
+  m_pdfTempFile.reset();
+#endif
+
 #ifdef USE_QT_PDF
   if (m_currentUrl.isLocalFile() &&
       m_currentUrl.fileName().endsWith(QLatin1String(".pdf"),
@@ -164,6 +173,49 @@ void Filter::requestDirectoryEntries() {
     emit dirEntriesLoaded();
     return;
   }
+#if defined(USE_KIO) && defined(USE_QT_PDF)
+  if (m_currentUrl.scheme() == QLatin1String("zip") &&
+      m_currentUrl.fileName().endsWith(QLatin1String(".pdf"),
+                                       Qt::CaseInsensitive)) {
+    if (m_job) {
+      m_job->kill();
+      m_job = nullptr;
+    }
+    m_pdfTempFile = std::make_unique<QTemporaryFile>();
+    if (!m_pdfTempFile->open()) {
+      m_pdfTempFile.reset();
+      emit dirEntriesLoaded();
+      return;
+    }
+
+    auto *job = KIO::storedGet(m_currentUrl, KIO::NoReload,
+                               KIO::HideProgressInfo);
+    job->setParent(this);
+    m_pdfJob = job;
+    connect(job, &KIO::StoredTransferJob::result, this, [this, job]() {
+      if (m_pdfJob != job)
+        return;
+      m_pdfJob = nullptr;
+
+      if (job->error() != 0) {
+        m_pdfTempFile.reset();
+        emit dirEntriesLoaded();
+        return;
+      }
+
+      if (m_pdfTempFile->write(job->data()) != job->data().size() ||
+          !m_pdfTempFile->flush()) {
+        m_pdfTempFile.reset();
+        emit dirEntriesLoaded();
+        return;
+      }
+      m_pdfTempFile->close();
+      requestPdfEntries(m_pdfTempFile->fileName());
+      emit dirEntriesLoaded();
+    });
+    return;
+  }
+#endif
 #endif
 
   bool isLocal = m_currentUrl.scheme().isEmpty() ||
@@ -217,6 +269,22 @@ void Filter::navigateDirectory(const QSharedPointer<DirectoryEntry> entry) {
   const QUrl &url = entry->url();
 
   if (qobject_cast<UpDirectoryEntry *>(entry.data())) {
+#ifdef USE_QT_PDF
+    if (!m_pdfParentUrl.isEmpty()) {
+#if defined(USE_KIO)
+      if (m_pdfJob) {
+        auto *oldJob = m_pdfJob;
+        m_pdfJob = nullptr;
+        oldJob->kill();
+      }
+      m_pdfTempFile.reset();
+#endif
+      m_currentUrl = m_pdfParentUrl;
+      m_pdfParentUrl.clear();
+      emit changed();
+      return;
+    }
+#endif
 #if defined(USE_LIBARCHIVE)
     if (m_archiveTemp) {
       QUrl parentUrl = m_currentUrl.resolved(QUrl(".."));
@@ -267,8 +335,8 @@ void Filter::navigateDirectory(const QSharedPointer<DirectoryEntry> entry) {
   }
 
 #ifdef USE_QT_PDF
-  if (url.isLocalFile() &&
-      url.fileName().endsWith(QLatin1String(".pdf"), Qt::CaseInsensitive)) {
+  if (entry->entryType() == DirectoryEntry::EntryType::Pdf) {
+    m_pdfParentUrl = m_currentUrl;
     m_currentUrl = url;
     emit changed();
     return;
@@ -313,8 +381,12 @@ void Filter::navigateDirectory(const QSharedPointer<DirectoryEntry> entry) {
 #ifdef USE_QT_PDF
 
 void Filter::requestPdfEntries() {
+  requestPdfEntries(m_currentUrl.toLocalFile());
+}
+
+void Filter::requestPdfEntries(const QString &filePath) {
   auto pdfDocument = QSharedPointer<QPdfDocument>(new QPdfDocument());
-  auto err = pdfDocument->load(m_currentUrl.toLocalFile());
+  auto err = pdfDocument->load(filePath);
   if (err != QPdfDocument::Error::None ||
       pdfDocument->status() != QPdfDocument::Status::Ready)
     return;

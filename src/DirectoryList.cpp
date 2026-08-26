@@ -36,15 +36,21 @@ void DirectoryList::populate() {
   const auto &entries = m_filter->dirEntries();
   for (const auto &base_entry : entries) {
     if (base_entry->entryType() == BaseDirectoryEntry::EntryType::Dir ||
-        base_entry->entryType() == DirectoryEntry::EntryType::Archive) {
+        base_entry->entryType() == DirectoryEntry::EntryType::Archive ||
+        base_entry->entryType() == DirectoryEntry::EntryType::Pdf) {
       QSharedPointer<DirectoryEntry> entry =
           qSharedPointerCast<DirectoryEntry>(base_entry);
       QTreeWidgetItem *item = new QTreeWidgetItem(this);
-      item->setIcon(
-          0, base_entry->entryType() == BaseDirectoryEntry::EntryType::Dir
-                 ? QIcon::fromTheme("folder")
-                 : QIcon::fromTheme("application-x-archive",
-                                    QIcon::fromTheme("package-x-generic")));
+      QIcon icon;
+      if (base_entry->entryType() == BaseDirectoryEntry::EntryType::Dir)
+        icon = QIcon::fromTheme("folder");
+      else if (base_entry->entryType() ==
+               BaseDirectoryEntry::EntryType::Pdf)
+        icon = QIcon::fromTheme("application-pdf");
+      else
+        icon = QIcon::fromTheme("application-x-archive",
+                                QIcon::fromTheme("package-x-generic"));
+      item->setIcon(0, icon);
       item->setText(1, base_entry->name());
       item->setData(1, Qt::UserRole, QVariant::fromValue(entry));
     }

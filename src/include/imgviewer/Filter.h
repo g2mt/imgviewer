@@ -6,12 +6,19 @@
 #include <QString>
 #include <QStringList>
 #include <QTemporaryDir>
+#if defined(USE_KIO) && defined(USE_QT_PDF)
+#include <QTemporaryFile>
+#endif
+#include <memory>
 
 #include <imgviewer/DirectoryEntry.h>
 
 #ifdef USE_KIO
 namespace KIO {
 class ListJob;
+#ifdef USE_QT_PDF
+class StoredTransferJob;
+#endif
 }
 #endif
 
@@ -102,6 +109,7 @@ private:
 
 #ifdef USE_QT_PDF
   void requestPdfEntries();
+  void requestPdfEntries(const QString &filePath);
 #endif
 
   QString m_search;
@@ -109,6 +117,9 @@ private:
   bool m_descending = false;
   bool m_naturalSort = true;
   QUrl m_currentUrl;
+#ifdef USE_QT_PDF
+  QUrl m_pdfParentUrl;
+#endif
 
   QList<QString> m_tags;
   QMap<QString, QStringList> m_tagMap;
@@ -117,6 +128,11 @@ private:
 
 #ifdef USE_KIO
   KIO::ListJob *m_job = nullptr;
+#endif
+
+#if defined(USE_KIO) && defined(USE_QT_PDF)
+  KIO::StoredTransferJob *m_pdfJob = nullptr;
+  std::unique_ptr<QTemporaryFile> m_pdfTempFile;
 #endif
 
 #ifdef USE_LIBARCHIVE
