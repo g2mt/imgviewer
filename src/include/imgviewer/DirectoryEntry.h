@@ -33,7 +33,7 @@ public:
   bool hasThumbnail() const { return !m_thumbnail.isNull(); }
   virtual void requestThumbnail();
 
-  enum class EntryType { Dir, Image, Archive, Pdf };
+  enum class EntryType { Up = 0, Dir = 1, Archive = 2, Pdf = 3, Image = 4 };
   virtual EntryType entryType() const;
   virtual QString name() const = 0;
 

@@ -8,6 +8,30 @@
 #include <qassert.h>
 #include <qsharedpointer.h>
 
+namespace {
+
+enum { TypeRole = Qt::UserRole };
+
+class DirTreeItem : public QTreeWidgetItem {
+public:
+  using QTreeWidgetItem::QTreeWidgetItem;
+
+private:
+  bool operator<(const QTreeWidgetItem &other) const override {
+    int col = treeWidget() ? treeWidget()->sortColumn() : 0;
+    if (col == 0) {
+      int a = data(0, TypeRole).toInt();
+      int b = other.data(0, TypeRole).toInt();
+      if (a != b)
+        return a < b;
+      return text(1).compare(other.text(1), Qt::CaseInsensitive) < 0;
+    }
+    return QTreeWidgetItem::operator<(other);
+  }
+};
+
+} // namespace
+
 DirectoryList::DirectoryList(Filter *filter, QWidget *parent)
     : QTreeWidget(parent), m_filter(filter) {
   setHeaderLabels({"", "Name"});
@@ -28,9 +52,10 @@ void DirectoryList::populate() {
   clear();
 
   auto upEntry = QSharedPointer<DirectoryEntry>(UpDirectoryEntry::create());
-  QTreeWidgetItem *upItem = new QTreeWidgetItem(this);
+  QTreeWidgetItem *upItem = new DirTreeItem(this);
   upItem->setIcon(0, QIcon::fromTheme("go-up"));
   upItem->setText(1, "..");
+  upItem->setData(0, TypeRole, static_cast<int>(BaseDirectoryEntry::EntryType::Up));
   upItem->setData(1, Qt::UserRole, QVariant::fromValue(upEntry));
 
   const auto &entries = m_filter->dirEntries();
@@ -40,7 +65,8 @@ void DirectoryList::populate() {
         base_entry->entryType() == DirectoryEntry::EntryType::Pdf) {
       QSharedPointer<DirectoryEntry> entry =
           qSharedPointerCast<DirectoryEntry>(base_entry);
-      QTreeWidgetItem *item = new QTreeWidgetItem(this);
+      QTreeWidgetItem *item = new DirTreeItem(this);
+      item->setData(0, TypeRole, static_cast<int>(base_entry->entryType()));
       QIcon icon;
       if (base_entry->entryType() == BaseDirectoryEntry::EntryType::Dir)
         icon = QIcon::fromTheme("folder");
