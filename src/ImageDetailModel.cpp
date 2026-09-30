@@ -72,7 +72,7 @@ void ImageDetailModel::populate() {
       continue;
     else if (!tags.isEmpty()) {
       auto *de = qobject_cast<DirectoryEntry *>(entry.data());
-      if (de && !m_filter->fileHasTags(de->url().toString()))
+      if (de && !m_filter->fileHasTags(de->url().toLocalFile()))
         continue;
     }
     m_filteredIndices.append(i);
