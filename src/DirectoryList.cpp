@@ -10,7 +10,7 @@
 
 namespace {
 
-enum { TypeRole = Qt::UserRole };
+enum { TypeRole = Qt::UserRole, DateRole = Qt::UserRole + 1 };
 
 class DirTreeItem : public QTreeWidgetItem {
 public:
@@ -26,6 +26,9 @@ private:
         return a < b;
       return text(1).compare(other.text(1), Qt::CaseInsensitive) < 0;
     }
+    if (col == 2 || col == 3)
+      return data(col, DateRole).toDateTime() <
+             other.data(col, DateRole).toDateTime();
     return QTreeWidgetItem::operator<(other);
   }
 };
@@ -34,7 +37,7 @@ private:
 
 DirectoryList::DirectoryList(Filter *filter, QWidget *parent)
     : QTreeWidget(parent), m_filter(filter) {
-  setHeaderLabels({"", "Name"});
+  setHeaderLabels({"", "Name", "Created", "Modified"});
   header()->setStretchLastSection(true);
   header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
   setRootIsDecorated(false);
@@ -78,6 +81,10 @@ void DirectoryList::populate() {
                                 QIcon::fromTheme("package-x-generic"));
       item->setIcon(0, icon);
       item->setText(1, base_entry->name());
+      item->setText(2, entry->birthTime().toString(Qt::ISODate));
+      item->setText(3, entry->lastModified().toString(Qt::ISODate));
+      item->setData(2, DateRole, entry->birthTime());
+      item->setData(3, DateRole, entry->lastModified());
       item->setData(1, Qt::UserRole, QVariant::fromValue(entry));
     }
   }
