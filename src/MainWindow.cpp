@@ -3,7 +3,6 @@
 #include <QHBoxLayout>
 #include <QImage>
 #include <QLabel>
-#include <QLineEdit>
 #include <QSettings>
 #include <QSplitter>
 #include <QTabWidget>
@@ -12,6 +11,7 @@
 #include <functional>
 #include <imgviewer/DirectoryListContainer.h>
 #include <imgviewer/ImageDetailList.h>
+#include <imgviewer/ImageDetailListContainer.h>
 #include <imgviewer/ImageView.h>
 #include <imgviewer/MainWindow.h>
 #include <imgviewer/TagList.h>
@@ -98,15 +98,6 @@ void MainWindow::setupToolbar(QToolBar *toolbar) {
   QWidget *spacer = new QWidget();
   spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
   toolbar->addWidget(spacer);
-
-  QLineEdit *searchBox = new QLineEdit();
-  searchBox->setPlaceholderText("Filter images");
-  searchBox->addAction(QIcon::fromTheme("edit-find"),
-                       QLineEdit::LeadingPosition);
-  searchBox->setMaximumWidth(200);
-  toolbar->addWidget(searchBox);
-  connect(searchBox, &QLineEdit::textChanged,
-          [this](const QString &text) { filter.setSearch(text); });
 
   QMenu *filterMenu = new QMenu("Filter", this);
   setupFilterMenu(filterMenu);
@@ -197,9 +188,11 @@ void MainWindow::setupRightSplitter(QSplitter *horizontalSplitter) {
   tabs->addTab(tagList, "Tags");
   m_rightSplitter->addWidget(tabs);
 
-  ImageDetailList *imageList = new ImageDetailList(&filter);
+  ImageDetailListContainer *imageListContainer =
+      new ImageDetailListContainer(&filter);
+  ImageDetailList *imageList = imageListContainer->imageList();
   m_imageList = imageList;
-  m_rightSplitter->addWidget(imageList);
+  m_rightSplitter->addWidget(imageListContainer);
   connect(imageList, &ImageDetailList::imageActivated, m_imageView,
           [this](const QVariant &data) {
 #ifdef USE_QT_PDF

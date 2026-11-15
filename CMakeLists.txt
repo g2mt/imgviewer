@@ -25,6 +25,7 @@ add_executable(imgviewer
     src/TagList.cpp
     src/TagListContainer.cpp
     src/ImageDetailList.cpp
+    src/ImageDetailListContainer.cpp
     src/ImageDetailModel.cpp
 
     ### Contains Q_OBJECT macros, needed for automoc
@@ -34,6 +35,7 @@ add_executable(imgviewer
     src/include/imgviewer/Filter.h
     src/include/imgviewer/ImageView.h
     src/include/imgviewer/ImageDetailList.h
+    src/include/imgviewer/ImageDetailListContainer.h
     src/include/imgviewer/ImageDetailModel.h
     src/include/imgviewer/TagList.h
     src/include/imgviewer/TagListContainer.h
